@@ -1,30 +1,283 @@
 ---
-title: "All_analysis"
-author: "Marius Mercier"
-date: "2024-03-06"
-output: html_document
+title: "Analysis Paper Cluster Insight"
+date: "2024-04-03"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: yes
+    toc_depth: 2
+header-includes:
+  - \usepackage{placeins}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results = 'asis')
+# Set options for kableExtra
+options(knitr.table.format = "latex")
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r library}
+library(tidyverse)
+library(kableExtra)
+library(jtools)
 ```
 
-## Including Plots
+# Study 1
 
-You can also embed plots, for example:
+```{r}
+# Prepare dataset and demographics
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+data_1 = read_csv("Data/Study1_data.csv")
+
+# Suppress people who did not understand explanation of insight
+data_1 = data_1 %>% filter(Q6 == 2)
+
+# Select columns with ratings of enjoyment and transform in numeric
+media_columns = c("Novel_enjoy", "Movie_enjoy", "Science_enjoy", "Puzzle_enjoy", "Game_enjoy", "Docu_enjoy")
+media_ratings = data_1[media_columns]
+media_ratings[] <- lapply(media_ratings, function(x) as.numeric(as.character(x)))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Descriptive Statistics
+
+```{r}
+media_ratings %>%
+  gather(key = "media", value = "rating") %>%
+  group_by(media) %>%
+  summarise(mean = mean(rating, na.rm = TRUE), sd = sd(rating, na.rm = TRUE), n_NA = sum(is.na(rating))) %>%
+  kable()
+```
+
+## Confirmatory Analyses
+
+**H1**: The mean of all pairwise correlations will be significantly different from chance
+
+```{r}
+# Calculate pairwise correlations
+cor_matrix <- cor(media_ratings, use="pairwise.complete.obs")
+
+# Extract lower triangle without the diagonal
+cor_values <- cor_matrix[lower.tri(cor_matrix)]
+
+# Calculate mean of these correlation coefficients
+mean_cor <- mean(cor_values)
+
+# Loop through the matrix to extract lower triangle correlations
+correlation_table <- data.frame(Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
+var_names <- colnames(media_ratings)
+
+for (i in 1:(length(var_names)-1)) {
+  for (j in (i+1):length(var_names)) {
+    pair <- sort(c(var_names[i], var_names[j]))
+    pair_name <- paste(pair[1], pair[2], sep="-")
+    
+    cor_value <- cor_matrix[i, j]
+    
+    correlation_table <- rbind(correlation_table, data.frame(Pair = pair_name, Correlation = cor_value))
+  }
+}
+
+rm(cor_value, cor_values, i, j, pair, pair_name, var_names)
+```
+
+```{r plot}
+# plot the correlation matrix with a heatmap with the value of correlations
+
+cor_matrix %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "media") %>%
+  gather(key = "media2", value = "correlation", -media) %>%
+  ggplot(aes(x = media, y = media2, fill = correlation)) +
+  geom_tile() +
+  geom_text(aes(label = round(correlation, 2))) +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Correlation matrix of media ratings", x = "Media 1", y = "Media 2", fill = "Correlation") +
+  theme(legend.position = "right")
+```
+
+```{r Bootstrapping}
+
+# Bootstrapping ####
+
+set.seed(123)  # Ensuring reproducibility
+
+n_iterations <- 1000 
+
+# Initialize an empty data frame to store the results from all iterations
+all_bootstrap_results <- data.frame(Iteration = integer(), Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
+
+for (i in 1:n_iterations) {
+  # Randomize dataset: shuffle the ratings within each column
+  randomized_data <- as.data.frame(lapply(media_ratings, sample))
+  
+  # Temporary storage for this iteration's results
+  iteration_results <- data.frame(Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
+  
+  var_names <- colnames(randomized_data)
+  
+  # Compute pairwise correlations
+  for (m in 1:(length(var_names)-1)) {
+    for (n in (m+1):length(var_names)) {
+      # Ensure pair names are always in alphabetical order
+      pair <- sort(c(var_names[m], var_names[n]))
+      pair_name <- paste(pair[1], pair[2], sep="-")
+      
+      cor_value <- cor(randomized_data[[m]], randomized_data[[n]], use="pairwise.complete.obs")
+      
+      # Temporarily store the pair, its correlation, and iteration number
+      iteration_results <- rbind(iteration_results, data.frame(Pair = pair_name, Correlation = cor_value))
+    }
+  }
+  
+  # Add iteration number to the iteration_results
+  iteration_results$Iteration <- i
+  
+  # Combine this iteration's results with the main storage
+  all_bootstrap_results <- rbind(all_bootstrap_results, iteration_results)
+}
+
+rm(n, n_iterations, pair, pair_name, var_names, m, i, cor_value, randomized_data)
+
+```
+
+```{r Pre-registered test}
+# Aggregate bootstrap results to find mean correlation per iteration
+bootstrap_means <- all_bootstrap_results %>%
+  group_by(Iteration) %>%
+  summarise(MeanCorrelation = mean(Correlation, na.rm = TRUE))
+
+# Calculate the 95% confidence interval for the bootstrap means
+bootstrap_ci <- quantile(bootstrap_means$MeanCorrelation, probs = c(0.025, 0.975), na.rm = TRUE)
+
+# Assuming mean_cor is the mean of actual correlations from correlation_table
+is_significantly_higher <- mean_cor > bootstrap_ci[2]  # Check if higher than upper CI bound
+
+# Print the result
+print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher))
+```
+
+```{r}
+ggplot(bootstrap_means, aes(x = MeanCorrelation)) +
+  geom_histogram(binwidth = 0.01, fill = "blue", color = "black", alpha = 0.5) +
+  geom_vline(xintercept = bootstrap_ci[1], linetype = "dashed", color = "grey", size = 1) +  # Lower CI bound
+  geom_vline(xintercept = bootstrap_ci[2], linetype = "dashed", color = "grey", size = 1) +  # Upper CI bound
+  geom_vline(xintercept = mean_cor, color = ifelse(is_significantly_higher, "green", "red"), size = 1.5) +  # Actual mean correlation
+  theme_minimal() +
+  labs(title = "Distribution of Bootstrap Mean Correlations",
+       x = "Mean Correlation",
+       y = "Count") +
+  annotate("text", x = mean_cor, y = Inf, label = sprintf("Actual mean: %.3f", mean_cor), vjust = 2, hjust=1)
+```
+
+
+## Exploratory Analyses
+
+```{r Analyses Plot for each pairs}
+
+# Assuming correlation_table contains the actual data correlations
+# And mean_cor is the mean of these correlations
+
+# Create a data frame for the vertical lines
+vlines_data <- correlation_table
+
+# Assign unique colors to each pair (and the mean score)
+vlines_data$Color <- factor(vlines_data$Pair)
+
+# Specify colors manually if preferred, or use a color palette
+# This example uses a palette for demonstration; replace with your desired colors
+num_colors <- length(unique(vlines_data$Color))
+palette <- hcl.colors(num_colors, "Viridis")
+names(palette) <- levels(vlines_data$Color)
+
+ggplot(all_bootstrap_results, aes(x = Correlation)) +
+  geom_histogram(binwidth = 0.05, fill = "blue", color = "black") +
+  geom_vline(data = vlines_data, aes(xintercept = Correlation, color = Color), size = 1) +  # Vertical lines for each pair
+  geom_vline(xintercept = mean_cor, color = "red", size = 2) +  # Larger line for mean score
+  scale_color_manual(values = palette) +  # Apply the color palette
+  theme_minimal() +
+  labs(title = "Distribution of Correlations from Bootstrap Analysis compared to actual distribution of correlations",
+       x = "Correlation",
+       y = "Count",
+       color = "Pair") +  # Legend title
+  theme(legend.position = "right")
+```
+
+**RQ1**: What pairwise correlations across media are significantly different from chance?
+
+```{r Test by Media Association}
+# Calculate 95% Confidence Intervals for each Pair
+bootstrap_cis <- all_bootstrap_results %>%
+  group_by(Pair) %>%
+  summarise(Lower = quantile(Correlation, 0.025, na.rm = TRUE),
+            Upper = quantile(Correlation, 0.975, na.rm = TRUE))
+
+# Merge the actual correlations with their corresponding CIs
+comparison_table <- merge(correlation_table, bootstrap_cis, by = "Pair")
+
+# Determine if actual correlations are significantly higher
+comparison_table$Significantly_Higher <- with(comparison_table, Correlation > Upper)
+
+
+# Merge the actual correlations with their CIs for plotting
+vlines_with_cis <- merge(vlines_data, bootstrap_cis, by = "Pair", all.x = TRUE)
+
+# Ensure this flag is included in vlines_with_cis for coloring
+vlines_with_cis <- merge(vlines_with_cis, comparison_table[, c("Pair", "Significantly_Higher")], by = "Pair")
+
+# Add a 'Color' column based on significance for plotting
+vlines_with_cis$Color <- ifelse(vlines_with_cis$Significantly_Higher, "green", "red")
+
+# Plotting with confidence intervals
+ggplot(all_bootstrap_results, aes(x = Correlation)) +
+  geom_histogram(binwidth = 0.05, fill = "blue", color = "black", alpha = 0.5) +
+  geom_vline(data = vlines_with_cis, aes(xintercept = Correlation, color = Color), size = 1) +  # Color based on significance
+  geom_vline(data = vlines_with_cis, aes(xintercept = Lower), linetype = "dotted", size = 0.5, color = "gray") +  # CI lower bound in gray
+  geom_vline(data = vlines_with_cis, aes(xintercept = Upper), linetype = "dotted", size = 0.5, color = "gray") +  # CI upper bound in gray
+  facet_wrap(~ Pair, scales = "free_x") +
+  scale_color_identity() +  # Use actual color names provided in the data
+  theme_minimal() +
+  labs(title = "Distribution of Bootstrapped Correlations by Pair",
+       x = "Correlation",
+       y = "Count") +
+  theme(legend.position = "none")  # No legend needed as colors are self-explanatory
+
+```
+**RQ2**: Is childhood SES related to how much participants enjoy insightful materials?
+
+```{r}
+media_ratings$mean_enjoyment = rowMeans(media_ratings, na.rm = TRUE)
+
+data_1$mean_enjoyment = media_ratings$mean_enjoyment
+
+data_1$SES_Child_1 = as.numeric(data_1$SES_Child_1)
+data_1$SES_Child_2 = as.numeric(data_1$SES_Child_2)
+data_1$SES_Child_3 = as.numeric(data_1$SES_Child_3)
+
+data_1$mean_child_SES = rowMeans(data_1[, c("SES_Child_1", "SES_Child_2", "SES_Child_3")], na.rm = TRUE)
+
+S1_rq2 = lm(mean_enjoyment ~ mean_child_SES, data = data_1)
+
+export_summs(S1_rq2, model.names = c("Mean Enjoyment"))
+```
+\FloatBarrier
+
+**RQ3.** Is current SES related to how much participants enjoy insightful materials?
+
+```{r}
+
+data_1$SES_Now_1 = as.numeric(data_1$SES_Now_1)
+data_1$SES_Now_2 = as.numeric(data_1$SES_Now_2)
+data_1$SES_Now_3 = as.numeric(data_1$SES_Now_3)
+
+data_1$mean_now_SES = rowMeans(data_1[, c("SES_Now_1", "SES_Now_2", "SES_Now_3")], na.rm = TRUE)
+
+S1_rq3 = lm(mean_enjoyment ~ mean_now_SES, data = data_1)
+
+export_summs(S1_rq3, model.names = c("Mean Enjoyment"))
+```
+
+
+
+

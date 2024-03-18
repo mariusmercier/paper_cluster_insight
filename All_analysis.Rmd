@@ -320,26 +320,36 @@ export_summs(S1_rq4, model.names = c("Mean Enjoyment"))
 summary(S1_rq4)
 ```
 
-```{r}
-hist(media_ratings$Science_enjoy)
-```
-```{r}
-hist(media_ratings$Docu_enjoy)
-```
+```{r Rain cloud plot plots}
+media_ratings_long = media_ratings %>% 
+  gather(key = "media", value = "rating") %>% 
+  filter(!is.na(rating))
 
-```{r}
-hist(media_ratings$Movie_enjoy)
-```
-```{r}
-hist(media_ratings$Puzzle_enjoy)
-```
+ggplot(media_ratings_long, aes(y = rating, x = media)) +
+  ggdist::stat_halfeye(
+    adjust = 2, 
+    width = .6, 
+    .width = 0, 
+    justification = -.3, 
+    point_colour = NA,
+    fill = "#9FE2BF"
+  )  +
+  geom_boxplot(
+    width = .25, 
+    outlier.shape = NA,
+    fill = "#9FE2BF"
+  ) +
+  geom_point(
+    size = 1.3,
+    alpha = .3,
+    position = position_jitter(seed = 1, width = .1),
+    fill = "#9FE2BF"
+  ) + 
+  ylab("Enjoyment") +
+  xlab("") +
+  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
+  theme_minimal()
 
-```{r}
-hist(media_ratings$Game_enjoy)
-```
-
-```{r}
-demo = read.csv("Data/Study1_democsv.csv")
 ```
 
 

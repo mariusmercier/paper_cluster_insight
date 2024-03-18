@@ -36,7 +36,25 @@ data_1 = data_1 %>% filter(Q6 == 2)
 media_columns = c("Novel_enjoy", "Movie_enjoy", "Science_enjoy", "Puzzle_enjoy", "Game_enjoy", "Docu_enjoy")
 media_ratings = data_1[media_columns]
 media_ratings[] <- lapply(media_ratings, function(x) as.numeric(as.character(x)))
+
+media_columns_frequency = c("Novel_regularity", "Movie_regularity", "Science_regularity", "Puzzle_regularity", "Game_regularity", "Docu_regularity")
+media_frequency = data_1[media_columns_frequency]
+media_frequency[] <- lapply(media_frequency, function(x) as.numeric(as.character(x)))
+
+# Demographics
+demo_1 = read_csv("Data/Study1_demo.csv")
+demo_1$PROLIFIC_PID = demo_1[["Participant id"]]
+
+# Merge datasets
+data_1 = left_join(data_1, demo_1, by = "PROLIFIC_PID")
+
+# Summary stats of participants
+table(data_1$Sex)
+mean(as.numeric(data_1$Age), na.rm = TRUE)
+sd(data_1$Age, na.rm = TRUE)
+
 ```
+
 
 ## Descriptive Statistics
 
@@ -47,6 +65,16 @@ media_ratings %>%
   summarise(mean = mean(rating, na.rm = TRUE), sd = sd(rating, na.rm = TRUE), n_NA = sum(is.na(rating))) %>%
   kable()
 ```
+
+```{r}
+media_frequency %>%
+  gather(key = "media", value = "frequency") %>%
+  group_by(media) %>%
+  summarise(mean = mean(frequency, na.rm = TRUE), sd = sd(frequency, na.rm = TRUE), n_NA = sum(is.na(frequency))) %>%
+  kable()
+```
+
+
 
 ## Confirmatory Analyses
 
@@ -61,6 +89,7 @@ cor_values <- cor_matrix[lower.tri(cor_matrix)]
 
 # Calculate mean of these correlation coefficients
 mean_cor <- mean(cor_values)
+sd_mean_cor = sd(cor_values)
 
 # Loop through the matrix to extract lower triangle correlations
 correlation_table <- data.frame(Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
@@ -82,7 +111,6 @@ rm(cor_value, cor_values, i, j, pair, pair_name, var_names)
 
 ```{r plot}
 # plot the correlation matrix with a heatmap with the value of correlations
-
 cor_matrix %>%
   as.data.frame() %>%
   rownames_to_column(var = "media") %>%
@@ -94,8 +122,9 @@ cor_matrix %>%
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(title = "Correlation matrix of media ratings", x = "Media 1", y = "Media 2", fill = "Correlation") +
-  theme(legend.position = "right")
+  theme(legend.position = "right") 
 ```
+
 
 ```{r Bootstrapping}
 
@@ -279,5 +308,38 @@ export_summs(S1_rq3, model.names = c("Mean Enjoyment"))
 ```
 
 
+```{r}
+data_1$age = as.numeric(data_1$age)
+
+S1_rq4 = lm(mean_enjoyment ~ scale(age), data = data_1)
+
+export_summs(S1_rq4, model.names = c("Mean Enjoyment"))
+```
+
+```{r}
+summary(S1_rq4)
+```
+
+```{r}
+hist(media_ratings$Science_enjoy)
+```
+```{r}
+hist(media_ratings$Docu_enjoy)
+```
+
+```{r}
+hist(media_ratings$Movie_enjoy)
+```
+```{r}
+hist(media_ratings$Puzzle_enjoy)
+```
+
+```{r}
+hist(media_ratings$Game_enjoy)
+```
+
+```{r}
+demo = read.csv("Data/Study1_democsv.csv")
+```
 
 

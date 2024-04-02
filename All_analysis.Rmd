@@ -352,4 +352,137 @@ ggplot(media_ratings_long, aes(y = rating, x = media)) +
 
 ```
 
+**RQ5**: Is there a cluster of people who never like insight stimuli?
+
+```{r}
+
+data_1$never_like = rowSums(select(media_ratings, -Puzzle_enjoy) < 4, na.rm = TRUE)
+
+ggplot(data_1, aes(x = never_like)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.5) +
+  labs(title = "Distribution of Number of Media Categories where insight is not enjoyed (<4)",
+       x = "Number of Media Categories",
+       y = "Count") +
+  theme_minimal()
+
+```
+
+```{r Exploratory Analysis with Klopenstein data}
+
+data_Klopfenstein = read_csv("Data/Study4_Klopfenstein_2024.csv")
+stim_K = read_csv("Data/Stim_Klopfenstein_2024_with_topics.csv")
+
+# correct index Stim_k
+
+stim_K$explanation_id = 1:nrow(stim_K)
+
+data_Klopfenstein = merge(data_Klopfenstein, stim_K, by = c("explanation_id"), how = "left")
+
+library(lmerTest)
+summary(lmer(appeal ~insight + (1|participant_id), data = data_Klopfenstein))
+
+```
+
+```{r}
+ggplot(data_Klopfenstein, aes(x = insight, y = appeal, group = topic_name, color = topic_name)) +
+  geom_jitter(width = 0.1, height = 0.1, alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Relationship between Insight and Appeal",
+       x = "Insight",
+       y = "Appeal") +
+  theme_minimal()
+```
+
+```{r}
+
+summary(lmer(appeal ~ insight*factor(topic_name) + (1|participant_id), data = data_Klopfenstein))
+
+```
+
+```{r}
+data_Klopfenstein %>%
+  group_by(topic_name) %>%
+  summarize(mean_insight = mean(insight),
+            sd_insight = sd(insight),
+            mean_appeal = mean(appeal),
+            sd_appeal = sd(appeal))
+```
+
+```{r}
+ggplot(data_Klopfenstein, aes(x = insight, y = appeal, group = participant_id, color = participant_id)) +
+  geom_jitter(width = 0.05, height = 0.05, alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Relationship between Insight and Appeal",
+       x = "Insight",
+       y = "Appeal") +
+  theme_minimal() +
+  guides(color = FALSE)
+```
+
+```{r}
+slopes = data_Klopfenstein %>%
+  group_by(participant_id) %>%
+  summarize(slope = lm(appeal ~ insight)$coefficients[2],
+            intercept = lm(appeal ~ insight)$coefficients[1])
+
+ggplot(slopes, aes(x = slope)) +
+  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
+  labs(title = "Slopes by participants",
+       x = "Slope",
+       y = "Frequence")
+
+```
+
+```{r}
+cor(slopes$intercept, slopes$slope, use = "complete.obs")
+```
+
+```{r}
+participants_with_low_slopes = slopes %>%
+  filter(slope < 0.3)
+
+data_Klopfenstein %>%
+  filter(participant_id %in% participants_with_low_slopes$participant_id) %>%
+  ggplot(aes(x = insight, y = appeal, group = participant_id, color = participant_id)) +
+    geom_jitter(width = 0.05, height = 0.05, alpha = 0.6) +
+    geom_smooth(method = "lm", se = FALSE) +
+    labs(title = "Relationship between Insight and Appeal for slopes < .3",
+         x = "Insight",
+         y = "Appeal") +
+    theme_minimal() +
+    guides(color = FALSE)
+
+```
+
+```{r}
+# create quartiles based on the slope
+
+slopes$quartile = cut(slopes$slope, breaks = quantile(slopes$slope, probs = c(0, 0.25, 0.5, 0.75, 1), na.rm = TRUE), include.lowest = TRUE, )
+
+# box plot of appeal depending on the quartile
+
+data_Klopfenstein %>%
+  left_join(slopes, by = "participant_id") %>%
+  drop_na() %>%
+  ggplot(aes(x = quartile, y = appeal, group = quartile, color = quartile)) +
+    geom_boxplot() +
+    labs(title = "Appeal by quartile of slope",
+         x = "Quartile",
+         y = "Appeal") +
+    theme_minimal()
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+
+```
 

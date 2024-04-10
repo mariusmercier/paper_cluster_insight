@@ -307,6 +307,7 @@ S1_rq3 = lm(mean_enjoyment ~ mean_now_SES, data = data_1)
 export_summs(S1_rq3, model.names = c("Mean Enjoyment"))
 ```
 
+**RQ4.** Is age related to how much participants enjoy insightful materials?
 
 ```{r}
 data_1$age = as.numeric(data_1$age)
@@ -366,6 +367,9 @@ ggplot(data_1, aes(x = never_like)) +
   theme_minimal()
 
 ```
+
+
+# Analysis with Klopfenstein data
 
 ```{r Exploratory Analysis with Klopenstein data}
 
@@ -436,6 +440,23 @@ ggplot(slopes, aes(x = slope)) +
 ```{r}
 cor(slopes$intercept, slopes$slope, use = "complete.obs")
 ```
+```{r}
+slopes_topic = data_Klopfenstein %>%
+  group_by(topic_name) %>%
+  sample_n(10) %>% 
+  summarize(slope = lm(appeal ~ insight)$coefficients[2],
+            intercept = lm(appeal ~ insight)$coefficients[1])
+```
+
+
+```{r}
+ggplot(slopes_topic, aes(x = slope)) +
+  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
+  labs(title = "Slopes by topics",
+       x = "Slope",
+       y = "Frequence")
+```
+
 
 ```{r}
 participants_with_low_slopes = slopes %>%
@@ -473,16 +494,244 @@ data_Klopfenstein %>%
 
 ```
 
-```{r}
+# Simulation to test CFA modelling
 
+```{r}
+library(lavaan)
+library(semTools)
 ```
 
 ```{r}
 
+model_1 <- "
+  # Higher-order factor
+  Curiosty =~ IW_seeking + Insight_seeking + Horror_seeking
+  
+  # First-order factors
+  IW_seeking =~ IW_docu + IW_games + IW_non_fiction + IW_films + IW_novels
+  Insight_seeking =~ Insight_docu + Insight_games + Insight_non_fiction + Insight_films + Insight_novels
+  Horror_seeking =~ Horror_docu + Horror_games + Horror_non_fiction + Horror_films + Horror_novels
+  
+  # Control for media specific effect
+  docu =~ IW_docu + Insight_docu + Horror_docu
+  games =~ IW_games + Insight_games + Horror_games
+  non_fiction =~ IW_non_fiction + Insight_non_fiction + Horror_non_fiction
+  films =~ IW_films + Insight_films + Horror_films
+  novels =~ IW_novels + Insight_novels + Horror_novels
+"
+
+model_2 = "
+  # Single factor
+  Curiosity =~ IW_docu + IW_games + IW_non_fiction + IW_films + IW_novels + Insight_docu + Insight_games + Insight_non_fiction + Insight_films + Insight_novels + Horror_docu + Horror_games + Horror_non_fiction + Horror_films + Horror_novels
+  
+  # Control for media specific effect
+  docu =~ IW_docu + Insight_docu + Horror_docu
+  games =~ IW_games + Insight_games + Horror_games
+  non_fiction =~ IW_non_fiction + Insight_non_fiction + Horror_non_fiction
+  films =~ IW_films + Insight_films + Horror_films
+  novels =~ IW_novels + Insight_novels + Horror_novels
+  
+"
+
+model_3 = "
+  # Higher-order factor
+  Curiosty =~ IW_seeking + Insight_seeking + Horror_seeking
+  
+  # First-order factors
+  IW_seeking =~ IW_docu + IW_games + IW_non_fiction + IW_films + IW_novels
+  Insight_seeking =~ Insight_docu + Insight_games + Insight_non_fiction + Insight_films + Insight_novels
+  Horror_seeking =~ Horror_docu + Horror_games + Horror_non_fiction + Horror_films + Horror_novels
+"
+
+model_4 = "
+  # Single factor
+  Curiosity =~ IW_docu + IW_games + IW_non_fiction + IW_films + IW_novels + Insight_docu + Insight_games + Insight_non_fiction + Insight_films + Insight_novels + Horror_docu + Horror_games + Horror_non_fiction + Horror_films + Horror_novels
+  
+"
+
+# test_model = "
+#   # Higher-order factors
+#   Curiosity =~ IW_seeking + Insight_seeking
+# 
+# 
+#   # First-order factors
+#   IW_seeking =~ IW_docu + IW_games + IW_non_fiction + IW_films + IW_novels
+#   Insight_seeking =~ Insight_docu + Insight_games + Insight_non_fiction + Insight_films + Insight_novels
+#   Horror_seeking =~ Horror_docu + Horror_games + Horror_non_fiction + Horror_films + Horror_novels
+#   
+#   # Control for media specific effect
+#   docu =~ IW_docu + Insight_docu + Horror_docu
+#   games =~ IW_games + Insight_games + Horror_games
+#   non_fiction =~ IW_non_fiction + Insight_non_fiction + Horror_non_fiction
+#   films =~ IW_films + Insight_films + Horror_films
+#   novels =~ IW_novels + Insight_novels + Horror_novels
+# "
+
+model_structure_strong_curiosity <- '
+# General Curiosity factor with varied loadings to avoid multicollinearity
+Curiosity =~ 0.6*IW_docu + 0.7*IW_games + 0.8*IW_non_fiction + 0.9*IW_films + 0.75*IW_novels + 
+              0.65*Insight_docu + 0.85*Insight_games + 0.7*Insight_non_fiction + 0.8*Insight_films + 0.9*Insight_novels +
+              0.9*Horror_docu + 0.75*Horror_games + 0.8*Horror_non_fiction + 0.85*Horror_films + 0.7*Horror_novels
+
+# Specific seeking factors with variability to reflect distinct constructs
+IW_seeking =~ 0.5*IW_docu + 0.6*IW_games + 0.7*IW_non_fiction + 0.8*IW_films + 0.65*IW_novels
+Insight_seeking =~ 0.6*Insight_docu + 0.7*Insight_games + 0.5*Insight_non_fiction + 0.65*Insight_films + 0.75*Insight_novels
+Horror_seeking =~ 0.7*Horror_docu + 0.8*Horror_games + 0.6*Horror_non_fiction + 0.5*Horror_films + 0.65*Horror_novels
+
+# Media-specific latent variables to account for method effect with moderate loadings
+docu =~ 0.5*IW_docu + 0.55*Insight_docu + 0.6*Horror_docu
+games =~ 0.6*IW_games + 0.65*Insight_games + 0.5*Horror_games
+non_fiction =~ 0.55*IW_non_fiction + 0.5*Insight_non_fiction + 0.65*Horror_non_fiction
+films =~ 0.6*IW_films + 0.55*Insight_films + 0.5*Horror_films
+novels =~ 0.5*IW_novels + 0.6*Insight_novels + 0.55*Horror_novels
+'
+
+# Simulating the data based model 1
+set.seed(230)  
+sim_data <- simulateData(model_1, sample.nobs = 500, model.type = "cfa")
+
+n = 500
+# Simulate a fully random dataset
+fully_random_data = data.frame(
+  IW_docu = rnorm(n, mean = 4, sd = 1),
+  IW_games = rnorm(n, mean = 4, sd = 1),
+  IW_non_fiction = rnorm(n, mean = 4, sd = 1),
+  IW_films = rnorm(n, mean = 4, sd = 1),
+  IW_novels = rnorm(n, mean = 4, sd = 1),
+  Insight_docu = rnorm(n, mean = 4, sd = 1),
+  Insight_games = rnorm(n, mean = 4, sd = 1),
+  Insight_non_fiction = rnorm(n, mean = 4, sd = 1),
+  Insight_films = rnorm(n, mean = 4, sd = 1),
+  Insight_novels = rnorm(n, mean = 4, sd = 1),
+  Horror_docu = rnorm(n, mean = 4, sd = 1),
+  Horror_games = rnorm(n, mean = 4, sd = 1),
+  Horror_non_fiction = rnorm(n, mean = 4, sd = 1),
+  Horror_films = rnorm(n, mean = 4, sd = 1),
+  Horror_novels = rnorm(n, mean = 4, sd = 1)
+)
+
+# Fit the model 1
+fit_model_1 = cfa(model_1, data = sim_data, estimator = "ML")
+
+fit_model_2 = cfa(model_2, data = sim_data, estimator = "ML")
+
+fit_model_3 = cfa(model_3, data = sim_data, estimator = "ML")
+
+fit_model_4 = cfa(model_4, data = sim_data, estimator = "ML")
+
+# test_model_3 = cfa(test_model, data = sim_data)
+
+```
+
+
+```{r}
+semTools::net(fit_model_1, fit_model_2, fit_model_3, fit_model_4)
+```
+
+
+
+```{r}
+summary(fit_model_2)
 ```
 
 ```{r}
+summary(fit_model_3)
+```
 
+```{r}
+summary(fit_model_4)
+```
+
+
+
+```{r}
+semTools::net(fit_model_3, fit_model_4)
+```
+
+```{r}
+library(nonnest2)
+
+nonnest2::vuongtest(fit_model_3, fit_model_4, nested = TRUE)
+```
+
+
+```{r}
+summary(semTools::compareFit(fit_model_1, fit_model_2))
+```
+
+
+
+```{r}
+print(lavTestLRT(fit_model_3, fit_model_4))
+```
+
+
+```{r}
+fitMeasures(fit_model_1, c("cfi", "rmsea", "srmr", "aic", "bic"))
+```
+```{r}
+fitMeasures(fit_model_2, c("cfi", "rmsea", "srmr", "aic", "bic"))
+```
+
+```{r}
+fitMeasures(test_model_3, c("cfi", "rmsea", "srmr", "aic", "bic"))
+```
+
+```{r}
+anova(fit_model_1, test_model_3)
+```
+
+```{r}
+nonnest2::vuongtest(fit_model_1, fit_model_2, nested = FALSE)
+```
+
+
+# Test ONE-factor CFA on previous data
+
+```{r}
+single_factor = "
+  Insight_seeking =~ Novel_enjoy + Movie_enjoy + Game_enjoy + Docu_enjoy + Science_enjoy + Puzzle_enjoy
+"
+
+alternative_model = "
+  Insight_seeking =~ Novel_enjoy + Movie_enjoy + Game_enjoy + Puzzle_enjoy
+  Nerd =~ Science_enjoy + Docu_enjoy
+  
+"
+
+second_alternative_model = 
+  "
+  Insight_seeking =~ Novel_enjoy + Game_enjoy
+  Screen_addict =~ Movie_enjoy + Docu_enjoy
+  Others =~ Puzzle_enjoy + Science_enjoy
+  "
+
+fit_single_factor = cfa(single_factor, data = media_ratings, estimator = "ML")
+fit_alternative_model = cfa(alternative_model, data = media_ratings, estimator = "ML")
+fit_second_alternative_model = cfa(second_alternative_model, data = media_ratings, estimator = "ML")
 
 ```
+
+
+
+```{r}
+semTools::net(fit_single_factor, fit_alternative_model, fit_second_alternative_model)
+```
+
+```{r}
+fitmeasures(fit_alternative_model, c("cfi", "rmsea", "srmr", "aic", "bic"))
+```
+
+```{r}
+fitMeasures(fit_single_factor, c("cfi", "rmsea", "srmr", "aic", "bic"))
+```
+
+```{r}
+fitMeasures(fit_second_alternative_model, c("cfi", "rmsea", "srmr", "aic", "bic"))
+```
+
+```{r}
+summary(compareFit(fit_single_factor, fit_second_alternative_model))
+```
+
 

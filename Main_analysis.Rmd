@@ -20,6 +20,8 @@ options(knitr.table.format = "latex")
 library(tidyverse)
 library(kableExtra)
 library(jtools)
+library(lavaan)
+library(semTools)
 ```
 
 # Study 1
@@ -490,9 +492,235 @@ data_Klopfenstein %>%
 
 ```
 
+# Study 2
+
+```{r, data preparation}
+data_2 = read_csv("Data/Study2_data.csv")
+
+# filter out participants who did not understand insight
+data_2 = data_2 %>%
+  filter(Q6 == 2)
+```
+
 ```{r}
+data_2 %>%
+  summarize(mean_time = mean(as.numeric(`Duration (in seconds)`), na.rm = TRUE), sd_time = sd(as.numeric(`Duration (in seconds)`), na.rm = TRUE))
+```
+```{r}
+data_2_cfa = data_2 %>%
+  select(starts_with("Novel"), starts_with("Movie"), starts_with("Nonfict"), starts_with("Game"), starts_with("Docu")) %>%
+  lapply(as.numeric) %>%
+  as.data.frame()
+
+data_2_cfa$ResponseId = data_2$ResponseId
+```
+
+
+```{r, Model_1}
+model_1 <- "
+  # Higher-order factor
+  Curiosty =~ Insight_seeking + Explo_curiosity + Morbid_curiosity
+  
+  # First-order factors
+  Insight_seeking =~ Novel_insight + Movie_insight + Nonfict_insight + Game_insight + Docu_insight
+  Explo_curiosity =~ Novel_explo + Movie_explo + Nonfict_explo + Game_explo + Docu_explo
+  Morbid_curiosity =~ Novel_morbid + Movie_morbid + Nonfict_morbid + Game_morbid + Docu_morbid
+  
+  # Control for media specific effect
+  Novels =~ Novel_insight + Novel_explo + Novel_morbid
+  Movies =~ Movie_insight + Movie_explo + Movie_morbid
+  Nonfict =~ Nonfict_insight + Nonfict_explo + Nonfict_morbid
+  Games =~ Game_insight + Game_explo + Game_morbid
+  Docu =~ Docu_insight + Docu_explo + Docu_morbid
+"
+
+fit_1 = cfa(model_1, data = data_2_cfa, missing = "fiml", optim.method = "BFGS")
+
+summary(fit_1, fit.measures = TRUE)
+```
+
+
+```{r, Model_2}
+model_2 <- "
+  # Single factor
+  Curiosity =~ Novel_insight + Movie_insight + Nonfict_insight + Game_insight + Docu_insight + Novel_explo + Movie_explo + Nonfict_explo + Game_explo + Docu_explo + Novel_morbid + Movie_morbid + Nonfict_morbid + Game_morbid + Docu_morbid
+  
+  # Control for media specific effect
+  Novels =~ Novel_insight + Novel_explo + Novel_morbid
+  Movies =~ Movie_insight + Movie_explo + Movie_morbid
+  Nonfict =~ Nonfict_insight + Nonfict_explo + Nonfict_morbid
+  Games =~ Game_insight + Game_explo + Game_morbid
+  Docu =~ Docu_insight + Docu_explo + Docu_morbid
+"
+
+fit_2 = cfa(model_2, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
+
+summary(fit_2, standardized = TRUE, fit.measures = TRUE)
+```
+
+
+
+```{r}
+model_3 <- "
+  # Higher-order factor
+  Curiosty =~ Insight_seeking + Explo_curiosity + Morbid_curiosity
+  
+  # First-order factors
+  Insight_seeking =~ Novel_insight + Movie_insight + Nonfict_insight + Game_insight + Docu_insight
+  Explo_curiosity =~ Novel_explo + Movie_explo + Nonfict_explo + Game_explo + Docu_explo
+  Morbid_curiosity =~ Novel_morbid + Movie_morbid + Nonfict_morbid + Game_morbid + Docu_morbid
+"
+
+model_4 <- "
+  # Single factor
+  Curiosity =~ Novel_insight + Movie_insight + Nonfict_insight + Game_insight + Docu_insight + Novel_explo + Movie_explo + Nonfict_explo + Game_explo + Docu_explo + Novel_morbid + Movie_morbid + Nonfict_morbid + Game_morbid + Docu_morbid
+"
+
+fit_3 = cfa(model_3, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
+fit_4 = cfa(model_4, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
+
+semTools::net(fit_1,fit_2,fit_3, fit_4)
+```
+
+```{r}
+lavaan::lavTestLRT(fit_1, fit_2, fit_3, fit_4)
+```
+
+```{r}
+cfa_scores = lavPredict(fit_1)
+```
+
+```{r}
+data_2 = cbind(data_2, cfa_scores)
+```
+
+```{r}
+# Q71: 
+# 1 = Natural and Physical Sciences
+# 2 = Business
+# 3 = Social Sciences
+# 4 = Engineering and Computer Science
+# 5 = Humanities
+# 6 = Other majors
+# 7 = Undeclared
+
+# recode values: 
+
+data_2$Q71 = recode(data_2$Q71, `1` = "Natural and Physical Sciences", `2` = "Business", `3` = "Social Sciences", `4` = "Engineering and Computer Science", `5` = "Humanities", `6` = "Other majors", `7` = "Undeclared")
+
+# Q5: 
+
+# 12 = Retired
+# 9 = Unemployed
+# 1 Agriculture, food, and natural resources
+# 11 architecture and construction
+# 2 Arts, audio/video technology, and communications
+# 3 Business management and administration
+# 4 Education and training
+# 5 Finance
+# 6 Government and public administration
+# 7 Health science
+# 10 Hospitality and tourism
+# 8 Human services
+# 13 Information technology
+# 14 Law, public safety, corrections, and security
+# 15 Manufacturing
+# 16 Science, technology, engineering, and mathematics
+# 17 Transportation, distribution, and logistics
+# 18 Other
+
+data_2$Q5 = recode(data_2$Q5, `1` = "Agriculture, food, and natural resources", `11` = "Architecture and construction", `2` = "Arts, audio/video technology, and communications", `3` = "Business management and administration", `4` = "Education and training", `5` = "Finance", `6` = "Government and public administration", `7` = "Health science", `10` = "Hospitality and tourism", `8` = "Human services", `13` = "Information technology", `14` = "Law, public safety, corrections, and security", `15` = "Manufacturing", `16` = "Science, technology, engineering, and mathematics", `17` = "Transportation, distribution, and logistics", `18` = "Other", `12` = "Retired", `9` = "Unemployed")
+
+
+S2_RQ1_1 = lm(Insight_seeking ~ factor(Q5), data = data_2)
+S2_RQ1_2 = lm(Explo_curiosity ~ factor(Q5), data = data_2)
+S2_RQ1_3 = lm(Morbid_curiosity ~ factor(Q5), data = data_2)
+S2_RQ1_4 = lm(Curiosty ~ factor(Q5), data = data_2)
+
+summary(S2_RQ1_1)
+```
+
+```{r}
+summary(S2_RQ1_2)
+```
+
+```{r}
+summary(S2_RQ1_3)
+```
+```{r}
+summary(S2_RQ1_4)
+```
+```{r}
+library(jtools)
+
+export_summs(S2_RQ1_1, S2_RQ1_2, S2_RQ1_3, S2_RQ1_4, model.names = c("Insight_seeking", "Explo_curiosity", "Morbid_curiosity", "Curiosty"), error_pos = "right", to.file = "html",
+             file.name = "S2_RQ1.html")
+```
+
+
+```{r}
+S2_RQ2_1 = lm(Insight_seeking ~ factor(Q71), data = data_2)
+S2_RQ2_2 = lm(Explo_curiosity ~ factor(Q71), data = data_2)
+S2_RQ2_3 = lm(Morbid_curiosity ~ factor(Q71), data = data_2)
+S2_RQ2_4 = lm(Curiosty ~ factor(Q71), data = data_2)
+
+summary(S2_RQ2_1)
+```
+
+```{r}
+summary(S2_RQ2_2)
+```
+
+```{r}
+summary(S2_RQ2_3)
+```
+
+```{r}
+summary(S2_RQ2_4)
+```
+
+```{r}
+# Descriptive Statistics:
+
+data_2_cfa %>% 
+  psych::describe()
 
 ```
 
 
+```{r}
+export_summs(S2_RQ2_1, S2_RQ2_2, S2_RQ2_3, S2_RQ2_4, model.names = c("Insight_seeking", "Explo_curiosity", "Morbid_curiosity", "Curiosty"), error_pos = "right", to.file = "html",
+             file.name = "S2_RQ2.html")
+
+```
+
+```{r}
+table(factor(data_2$Q71))
+```
+
+```{r}
+kable(table(factor(data_2$Q5)), to.file = "html")
+```
+
+
+```{r}
+# apply as.numeric
+
+data_2$Novel_regularity = as.numeric(data_2$Novel_regularity)
+data_2$Movie_regularity = as.numeric(data_2$Movie_regularity)
+data_2$Nonfict_regularity = as.numeric(data_2$Nonfict_regularity)
+data_2$Game_regularity = as.numeric(data_2$Game_regularity)
+data_2$Docu_regularity = as.numeric(data_2$Docu_regularity)
+
+
+data_2$mean_comsumption = rowMeans(data_2[,c("Novel_regularity", "Movie_regularity", "Nonfict_regularity", "Docu_regularity")])
+
+summary(lm(mean_comsumption ~ factor(Q5), data = data_2))
+```
+
+```{r}
+```
+
+```{r}
+```
 

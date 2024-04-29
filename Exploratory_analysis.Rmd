@@ -735,3 +735,9 @@ summary(compareFit(fit_single_factor, fit_second_alternative_model))
 ```
 
 
+```{r, PILOT}
+df_pilot = read.csv("Data/Study2_pilot.csv")
+
+
+```
+

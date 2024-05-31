@@ -1,5 +1,5 @@
 ---
-title: "Analysis Paper Cluster Insight"
+title: "Main Analysis, Variability of Insight Seeking"
 date: "2024-04-03"
 output:
   pdf_document:
@@ -9,6 +9,9 @@ output:
 header-includes:
   - \usepackage{placeins}
 ---
+
+This is the Main Analysis for the Master thesis of Marius Mercier "One Feeling, Many Domains". Below are the code used to produce the analysis of the thesis.
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results = 'asis')
@@ -22,41 +25,99 @@ library(kableExtra)
 library(jtools)
 library(lavaan)
 library(semTools)
+library(lmerTest)
 ```
 
 # Study 1
 
+```{r Exploratory Analysis with Klopenstein data}
+
+data_Klopfenstein = read_csv("Data/Study4_Klopfenstein_2024.csv")
+stim_K = read_csv("Data/Stim_Klopfenstein_2024_with_topics.csv") #topic modelling in the .ipynb file.
+
+# correct index Stim_k
+
+stim_K$explanation_id = 1:nrow(stim_K)
+
+data_Klopfenstein = merge(data_Klopfenstein, stim_K, by = c("explanation_id"), how = "left")
+```
+
+## Descriptive Statistics
+
+```{r}
+data_Klopfenstein %>%
+  group_by(topic_name) %>%
+  summarize(mean_insight = mean(insight),
+            sd_insight = sd(insight),
+            mean_appeal = mean(appeal),
+            sd_appeal = sd(appeal))
+```
+
+
+## Manipulation Check
+
+```{r}
+# manipulation check
+S1_h1 = lmer(scale(appeal) ~ scale(insight) + (1|participant_id) + (1|explanation_id), data = data_Klopfenstein)
+
+summary(S1_h1)
+```
+
+## Confirmatory Analysis
+
+```{r confirmatory analysis S1}
+
+S1_h2 = lmer(scale(appeal) ~ scale(insight)*factor(topic_name) + (1|participant_id) + (1|explanation_id), data = data_Klopfenstein)
+
+# export_summs(S2_h2, error_pos = "right", model.names = c("Appeal of an explanation"), to.file = "docx", file.name = "S2_h2.docx")
+
+summary(S2_h2)
+```
+
+## Plot
+
+```{r}
+ggplot(data_Klopfenstein, aes(x = insight, y = appeal, group = topic_name, color = topic_name)) +
+  geom_jitter(width = 0.1, height = 0.1, alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Relationship between Insight and Appeal",
+       x = "Insight",
+       y = "Appeal") +
+  theme_minimal()
+```
+
+# Study 2
+
 ```{r}
 # Prepare dataset and demographics
 
-data_1 = read_csv("Data/Study1_data.csv")
+data_2 = read_csv("Data/Study1_data.csv")
 
 # Suppress people who did not understand explanation of insight
-data_1 = data_1 %>% filter(Q6 == 2)
+data_2 = data_2 %>% filter(Q6 == 2)
 
 # Select columns with ratings of enjoyment and transform in numeric
 media_columns = c("Novel_enjoy", "Movie_enjoy", "Science_enjoy", "Puzzle_enjoy", "Game_enjoy", "Docu_enjoy")
-media_ratings = data_1[media_columns]
+media_ratings = data_2[media_columns]
 media_ratings[] <- lapply(media_ratings, function(x) as.numeric(as.character(x)))
 
 media_columns_frequency = c("Novel_regularity", "Movie_regularity", "Science_regularity", "Puzzle_regularity", "Game_regularity", "Docu_regularity")
-media_frequency = data_1[media_columns_frequency]
+media_frequency = data_2[media_columns_frequency]
 media_frequency[] <- lapply(media_frequency, function(x) as.numeric(as.character(x)))
 
 # Demographics
-demo_1 = read_csv("Data/Study1_demo.csv")
-demo_1$PROLIFIC_PID = demo_1[["Participant id"]]
+demo_2 = read_csv("Data/Study1_demo.csv")
+demo_2$PROLIFIC_PID = demo_2[["Participant id"]]
 
 # Merge datasets
-data_1 = left_join(data_1, demo_1, by = "PROLIFIC_PID")
+data_2 = left_join(data_2, demo_2, by = "PROLIFIC_PID")
 
 # Summary stats of participants
-table(data_1$Sex)
-mean(as.numeric(data_1$Age), na.rm = TRUE)
-sd(data_1$Age, na.rm = TRUE)
+table(data_2$Sex)
+mean(as.numeric(data_2$Age), na.rm = TRUE)
+sd(data_2$Age, na.rm = TRUE)
 
 ```
-
 
 ## Descriptive Statistics
 
@@ -75,7 +136,6 @@ media_frequency %>%
   summarise(mean = mean(frequency, na.rm = TRUE), sd = sd(frequency, na.rm = TRUE), n_NA = sum(is.na(frequency))) %>%
   kable()
 ```
-
 
 
 ## Confirmatory Analyses
@@ -185,8 +245,12 @@ bootstrap_ci <- quantile(bootstrap_means$MeanCorrelation, probs = c(0.025, 0.975
 # Assuming mean_cor is the mean of actual correlations from correlation_table
 is_significantly_higher <- mean_cor > bootstrap_ci[2]  # Check if higher than upper CI bound
 
+# calculate p_value
+p_value = mean(bootstrap_means$MeanCorrelation > mean_cor)
+
 # Print the result
-print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher))
+print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher, " with p_val of" p_value))
+
 ```
 
 ```{r}
@@ -280,15 +344,15 @@ ggplot(all_bootstrap_results, aes(x = Correlation)) +
 ```{r}
 media_ratings$mean_enjoyment = rowMeans(media_ratings, na.rm = TRUE)
 
-data_1$mean_enjoyment = media_ratings$mean_enjoyment
+data_2$mean_enjoyment = media_ratings$mean_enjoyment
 
-data_1$SES_Child_1 = as.numeric(data_1$SES_Child_1)
-data_1$SES_Child_2 = as.numeric(data_1$SES_Child_2)
-data_1$SES_Child_3 = as.numeric(data_1$SES_Child_3)
+data_2$SES_Child_1 = as.numeric(data_2$SES_Child_1)
+data_2$SES_Child_2 = as.numeric(data_2$SES_Child_2)
+data_2$SES_Child_3 = as.numeric(data_2$SES_Child_3)
 
-data_1$mean_child_SES = rowMeans(data_1[, c("SES_Child_1", "SES_Child_2", "SES_Child_3")], na.rm = TRUE)
+data_2$mean_child_SES = rowMeans(data_2[, c("SES_Child_1", "SES_Child_2", "SES_Child_3")], na.rm = TRUE)
 
-S1_rq2 = lm(mean_enjoyment ~ mean_child_SES, data = data_1)
+S1_rq2 = lm(mean_enjoyment ~ mean_child_SES, data = data_2)
 
 export_summs(S1_rq2, model.names = c("Mean Enjoyment"))
 ```
@@ -298,22 +362,22 @@ export_summs(S1_rq2, model.names = c("Mean Enjoyment"))
 
 ```{r}
 
-data_1$SES_Now_1 = as.numeric(data_1$SES_Now_1)
-data_1$SES_Now_2 = as.numeric(data_1$SES_Now_2)
-data_1$SES_Now_3 = as.numeric(data_1$SES_Now_3)
+data_2$SES_Now_1 = as.numeric(data_2$SES_Now_1)
+data_2$SES_Now_2 = as.numeric(data_2$SES_Now_2)
+data_2$SES_Now_3 = as.numeric(data_2$SES_Now_3)
 
-data_1$mean_now_SES = rowMeans(data_1[, c("SES_Now_1", "SES_Now_2", "SES_Now_3")], na.rm = TRUE)
+data_2$mean_now_SES = rowMeans(data_2[, c("SES_Now_1", "SES_Now_2", "SES_Now_3")], na.rm = TRUE)
 
-S1_rq3 = lm(mean_enjoyment ~ mean_now_SES, data = data_1)
+S1_rq3 = lm(mean_enjoyment ~ mean_now_SES, data = data_2)
 
 export_summs(S1_rq3, model.names = c("Mean Enjoyment"))
 ```
 
 
 ```{r}
-data_1$age = as.numeric(data_1$age)
+data_2$age = as.numeric(data_2$age)
 
-S1_rq4 = lm(mean_enjoyment ~ scale(age), data = data_1)
+S1_rq4 = lm(mean_enjoyment ~ scale(age), data = data_2)
 
 export_summs(S1_rq4, model.names = c("Mean Enjoyment"))
 ```
@@ -358,9 +422,9 @@ ggplot(media_ratings_long, aes(y = rating, x = media)) +
 
 ```{r}
 
-data_1$never_like = rowSums(select(media_ratings, -Puzzle_enjoy) < 4, na.rm = TRUE)
+data_2$never_like = rowSums(select(media_ratings, -Puzzle_enjoy) < 4, na.rm = TRUE)
 
-ggplot(data_1, aes(x = never_like)) +
+ggplot(data_2, aes(x = never_like)) +
   geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.5) +
   labs(title = "Distribution of Number of Media Categories where insight is not enjoyed (<4)",
        x = "Number of Media Categories",
@@ -369,152 +433,50 @@ ggplot(data_1, aes(x = never_like)) +
 
 ```
 
-```{r Exploratory Analysis with Klopenstein data}
 
-data_Klopfenstein = read_csv("Data/Study4_Klopfenstein_2024.csv")
-stim_K = read_csv("Data/Stim_Klopfenstein_2024_with_topics.csv")
-
-# correct index Stim_k
-
-stim_K$explanation_id = 1:nrow(stim_K)
-
-data_Klopfenstein = merge(data_Klopfenstein, stim_K, by = c("explanation_id"), how = "left")
-
-library(lmerTest)
-summary(lmer(appeal ~insight + (1|participant_id), data = data_Klopfenstein))
-
-```
-
-```{r}
-ggplot(data_Klopfenstein, aes(x = insight, y = appeal, group = topic_name, color = topic_name)) +
-  geom_jitter(width = 0.1, height = 0.1, alpha = 0.6) +
-  geom_smooth(method = "lm", se = FALSE) +
-  labs(title = "Relationship between Insight and Appeal",
-       x = "Insight",
-       y = "Appeal") +
-  theme_minimal()
-```
-
-```{r}
-
-summary(lmer(appeal ~ insight*factor(topic_name) + (1|participant_id), data = data_Klopfenstein))
-
-```
-
-```{r}
-data_Klopfenstein %>%
-  group_by(topic_name) %>%
-  summarize(mean_insight = mean(insight),
-            sd_insight = sd(insight),
-            mean_appeal = mean(appeal),
-            sd_appeal = sd(appeal))
-```
-
-```{r}
-ggplot(data_Klopfenstein, aes(x = insight, y = appeal, group = participant_id, color = participant_id)) +
-  geom_jitter(width = 0.05, height = 0.05, alpha = 0.6) +
-  geom_smooth(method = "lm", se = FALSE) +
-  labs(title = "Relationship between Insight and Appeal",
-       x = "Insight",
-       y = "Appeal") +
-  theme_minimal() +
-  guides(color = FALSE)
-```
-
-```{r}
-slopes = data_Klopfenstein %>%
-  group_by(participant_id) %>%
-  summarize(slope = lm(appeal ~ insight)$coefficients[2],
-            intercept = lm(appeal ~ insight)$coefficients[1])
-
-ggplot(slopes, aes(x = slope)) +
-  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
-  labs(title = "Slopes by participants",
-       x = "Slope",
-       y = "Frequence")
-
-```
-
-```{r}
-cor(slopes$intercept, slopes$slope, use = "complete.obs")
-```
-```{r}
-slopes_topic = data_Klopfenstein %>%
-  group_by(topic_name) %>%
-  sample_n(10) %>% 
-  summarize(slope = lm(appeal ~ insight)$coefficients[2],
-            intercept = lm(appeal ~ insight)$coefficients[1])
-```
-
-
-```{r}
-ggplot(slopes_topic, aes(x = slope)) +
-  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
-  labs(title = "Slopes by topics",
-       x = "Slope",
-       y = "Frequence")
-```
-
-
-```{r}
-participants_with_low_slopes = slopes %>%
-  filter(slope < 0.3)
-
-data_Klopfenstein %>%
-  filter(participant_id %in% participants_with_low_slopes$participant_id) %>%
-  ggplot(aes(x = insight, y = appeal, group = participant_id, color = participant_id)) +
-    geom_jitter(width = 0.05, height = 0.05, alpha = 0.6) +
-    geom_smooth(method = "lm", se = FALSE) +
-    labs(title = "Relationship between Insight and Appeal for slopes < .3",
-         x = "Insight",
-         y = "Appeal") +
-    theme_minimal() +
-    guides(color = FALSE)
-
-```
-
-```{r}
-# create quartiles based on the slope
-
-slopes$quartile = cut(slopes$slope, breaks = quantile(slopes$slope, probs = c(0, 0.25, 0.5, 0.75, 1), na.rm = TRUE), include.lowest = TRUE, )
-
-# box plot of appeal depending on the quartile
-
-data_Klopfenstein %>%
-  left_join(slopes, by = "participant_id") %>%
-  drop_na() %>%
-  ggplot(aes(x = quartile, y = appeal, group = quartile, color = quartile)) +
-    geom_boxplot() +
-    labs(title = "Appeal by quartile of slope",
-         x = "Quartile",
-         y = "Appeal") +
-    theme_minimal()
-
-```
-
-# Study 2
+# Study 3
 
 ```{r, data preparation}
-data_2 = read_csv("Data/Study2_data.csv")
+data_3 = read_csv("Data/Study2_data.csv")
 
 # filter out participants who did not understand insight
-data_2 = data_2 %>%
+data_3 = data_3 %>%
   filter(Q6 == 2)
+
+# add demographics
+data_3_demo = read_csv("Data/Study2_demo.csv")
+data_3_demo$PROLIFIC_PID = data_3_demo[["Participant id"]]
+
+data_3 <- left_join(data_3, 
+                    data_3_demo %>% select(PROLIFIC_PID, Age, Sex), 
+                    by = "PROLIFIC_PID")
+
+table(data_3$Sex)
+
+data_3 %>% 
+  summarise(
+    mean_Age = mean(as.numeric(Age), na.rm = TRUE),
+    sd_Age = sd(Age, na.rm = TRUE)
+  )
+```
+
+
+```{r}
+data_3 %>%
+  summarize(mean_time = mean(as.numeric(`Duration (in seconds)`), na.rm = TRUE), sd_time = sd(as.numeric(`Duration (in seconds)`), na.rm = TRUE))
 ```
 
 ```{r}
-data_2 %>%
-  summarize(mean_time = mean(as.numeric(`Duration (in seconds)`), na.rm = TRUE), sd_time = sd(as.numeric(`Duration (in seconds)`), na.rm = TRUE))
-```
-```{r}
-data_2_cfa = data_2 %>%
+data_3_cfa = data_3 %>%
   select(starts_with("Novel"), starts_with("Movie"), starts_with("Nonfict"), starts_with("Game"), starts_with("Docu")) %>%
   lapply(as.numeric) %>%
   as.data.frame()
 
-data_2_cfa$ResponseId = data_2$ResponseId
+data_3_cfa$ResponseId = data_3$ResponseId
 ```
 
+
+## Model Fitting
 
 ```{r, Model_1}
 model_1 <- "
@@ -534,7 +496,7 @@ model_1 <- "
   Docu =~ Docu_insight + Docu_explo + Docu_morbid
 "
 
-fit_1 = cfa(model_1, data = data_2_cfa, missing = "fiml", optim.method = "BFGS")
+fit_1 = cfa(model_1, data = data_3_cfa, missing = "fiml", optim.method = "BFGS")
 
 summary(fit_1, fit.measures = TRUE)
 ```
@@ -553,7 +515,7 @@ model_2 <- "
   Docu =~ Docu_insight + Docu_explo + Docu_morbid
 "
 
-fit_2 = cfa(model_2, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
+fit_2 = cfa(model_2, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
 
 summary(fit_2, standardized = TRUE, fit.measures = TRUE)
 ```
@@ -576,22 +538,154 @@ model_4 <- "
   Curiosity =~ Novel_insight + Movie_insight + Nonfict_insight + Game_insight + Docu_insight + Novel_explo + Movie_explo + Nonfict_explo + Game_explo + Docu_explo + Novel_morbid + Movie_morbid + Nonfict_morbid + Game_morbid + Docu_morbid
 "
 
-fit_3 = cfa(model_3, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
-fit_4 = cfa(model_4, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
+model_5 <- "
+  # Media specific factors
+  Novels =~ Novel_insight + Novel_explo + Novel_morbid
+  Movies =~ Movie_insight + Movie_explo + Movie_morbid
+  Nonfict =~ Nonfict_insight + Nonfict_explo + Nonfict_morbid
+  Games =~ Game_insight + Game_explo + Game_morbid
+  Docu =~ Docu_insight + Docu_explo + Docu_morbid
+"
 
-semTools::net(fit_1,fit_2,fit_3, fit_4)
+fit_3 = cfa(model_3, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
+fit_4 = cfa(model_4, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
+fit_5 = cfa(model_5, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
+```
+
+## Manipulation Check
+```{r}
+semTools::net(fit_1,fit_2,fit_3, fit_4, fit_5)
+```
+
+## Confirmatory Analysis
+```{r}
+lavaan::lavTestLRT(fit_1, fit_2)
+```
+
+
+## Exploratory Analysis
+
+```{r}
+lavaan::lavTestLRT(fit_2, fit_5)
+
+lavaan::lavTestLRT(fit_1, fit_3)
+
+lavaan::lavTestLRT(fit_3, fit_4)
 ```
 
 ```{r}
-lavaan::lavTestLRT(fit_1, fit_2, fit_3, fit_4)
+# create a subset without morbid curiosity
+
+data_3_cfa_2 = data_3_cfa %>%
+  select(starts_with("Novel"), starts_with("Movie"), starts_with("Nonfict"), starts_with("Game"), starts_with("Docu")) %>%
+  select(-contains("morbid")) %>%
+  lapply(as.numeric) %>%
+  as.data.frame()
+
+data_3_cfa_2$ResponseId = data_3_cfa$ResponseId
+
+model_6 <- "
+  # Higher-order factor
+  Curiosty =~ Insight_seeking + Explo_curiosity
+  
+  # First-order factors
+  Insight_seeking =~ Novel_insight + Movie_insight + Nonfict_insight + Game_insight + Docu_insight
+  Explo_curiosity =~ Novel_explo + Movie_explo + Nonfict_explo + Game_explo + Docu_explo
+  
+  # Control for media specific effect
+  Novels =~ Novel_insight + Novel_explo
+  Movies =~ Movie_insight + Movie_explo
+  Nonfict =~ Nonfict_insight + Nonfict_explo
+  Games =~ Game_insight + Game_explo
+  Docu =~ Docu_insight + Docu_explo
+  "
+
+model_7 <- "
+  # Single factor
+  Curiosity =~ Novel_insight + Movie_insight + Nonfict_insight + Game_insight + Docu_insight + Novel_explo + Movie_explo + Nonfict_explo + Game_explo + Docu_explo
+  
+  # Control for media specific effect
+  Novels =~ Novel_insight + Novel_explo
+  Movies =~ Movie_insight + Movie_explo
+  Nonfict =~ Nonfict_insight + Nonfict_explo
+  Games =~ Game_insight + Game_explo
+  Docu =~ Docu_insight + Docu_explo
+  "
+
+fit_6 = cfa(model_6, data = data_3_cfa_2, missing = "FIML", optim.method = "BFGS")
+fit_7 = cfa(model_7, data = data_3_cfa_2, missing = "FIML", optim.method = "BFGS")
 ```
 
 ```{r}
-cfa_scores = lavPredict(fit_1)
+summary(fit_6, standardized = TRUE, fit.measures = TRUE)
+summary(fit_7, standardized = TRUE, fit.measures = TRUE)
 ```
 
 ```{r}
-data_2 = cbind(data_2, cfa_scores)
+lavaan::lavTestLRT(fit_1, fit_6)
+```
+
+```{r}
+model_8 <- "
+  # Higher-order factor
+  Curiosty =~ Insight_seeking + Explo_curiosity
+  
+  # First-order factors
+  Insight_seeking =~ Novel_insight + Movie_insight + Nonfict_insight + Game_insight + Docu_insight
+  Explo_curiosity =~ Novel_explo + Movie_explo + Nonfict_explo + Game_explo + Docu_explo
+  Morbid_curiosity =~ Novel_morbid + Movie_morbid + Nonfict_morbid + Game_morbid + Docu_morbid
+  
+  # Control for media specific effect
+  Novels =~ Novel_insight + Novel_explo + Novel_morbid
+  Movies =~ Movie_insight + Movie_explo + Movie_morbid
+  Nonfict =~ Nonfict_insight + Nonfict_explo + Nonfict_morbid
+  Games =~ Game_insight + Game_explo + Game_morbid
+  Docu =~ Docu_insight + Docu_explo + Docu_morbid
+"
+
+fit_8 = cfa(model_8, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
+
+
+model_9 <- "
+  
+  # First-order factors
+  Insight_seeking =~ Novel_insight + Movie_insight + Nonfict_insight + Game_insight + Docu_insight
+  Explo_curiosity =~ Novel_explo + Movie_explo + Nonfict_explo + Game_explo + Docu_explo
+  Morbid_curiosity =~ Novel_morbid + Movie_morbid + Nonfict_morbid + Game_morbid + Docu_morbid
+  
+  # Control for media specific effect
+  Novels =~ Novel_insight + Novel_explo + Novel_morbid
+  Movies =~ Movie_insight + Movie_explo + Movie_morbid
+  Nonfict =~ Nonfict_insight + Nonfict_explo + Nonfict_morbid
+  Games =~ Game_insight + Game_explo + Game_morbid
+  Docu =~ Docu_insight + Docu_explo + Docu_morbid
+"
+
+fit_9 = cfa(model_9, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
+```
+
+```{r}
+semTools::net(fit_1, fit_9)
+```
+
+```{r}
+lavaan::lavTestLRT(fit_1, fit_8)
+```
+
+```{r}
+library(nonnest2)
+
+nonnest2::vuongtest(fit_1, fit_9)
+
+nonnest2::icci(fit_1, fit_9)
+```
+
+```{r}
+cfa_scores = lavPredict(fit_9)
+```
+
+```{r}
+data_3 = cbind(data_3, cfa_scores)
 ```
 
 ```{r}
@@ -606,7 +700,7 @@ data_2 = cbind(data_2, cfa_scores)
 
 # recode values: 
 
-data_2$Q71 = recode(data_2$Q71, `1` = "Natural and Physical Sciences", `2` = "Business", `3` = "Social Sciences", `4` = "Engineering and Computer Science", `5` = "Humanities", `6` = "Other majors", `7` = "Undeclared")
+data_3$Q71 = recode(data_3$Q71, `1` = "Natural and Physical Sciences", `2` = "Business", `3` = "Social Sciences", `4` = "Engineering and Computer Science", `5` = "Humanities", `6` = "Other majors", `7` = "Undeclared")
 
 # Q5: 
 
@@ -629,98 +723,456 @@ data_2$Q71 = recode(data_2$Q71, `1` = "Natural and Physical Sciences", `2` = "Bu
 # 17 Transportation, distribution, and logistics
 # 18 Other
 
-data_2$Q5 = recode(data_2$Q5, `1` = "Agriculture, food, and natural resources", `11` = "Architecture and construction", `2` = "Arts, audio/video technology, and communications", `3` = "Business management and administration", `4` = "Education and training", `5` = "Finance", `6` = "Government and public administration", `7` = "Health science", `10` = "Hospitality and tourism", `8` = "Human services", `13` = "Information technology", `14` = "Law, public safety, corrections, and security", `15` = "Manufacturing", `16` = "Science, technology, engineering, and mathematics", `17` = "Transportation, distribution, and logistics", `18` = "Other", `12` = "Retired", `9` = "Unemployed")
+data_3$Q5 = recode(data_3$Q5, `1` = "Agriculture, food, and natural resources", `11` = "Architecture and construction", `2` = "Arts, audio/video technology, and communications", `3` = "Business management and administration", `4` = "Education and training", `5` = "Finance", `6` = "Government and public administration", `7` = "Health science", `10` = "Hospitality and tourism", `8` = "Human services", `13` = "Information technology", `14` = "Law, public safety, corrections, and security", `15` = "Manufacturing", `16` = "Science, technology, engineering, and mathematics", `17` = "Transportation, distribution, and logistics", `18` = "Other", `12` = "Retired", `9` = "Unemployed")
+
+# Calculate the mean of answer for questions ending with insight
+insight_cols <- data_3 %>%
+  select(ends_with("insight")) %>% 
+  mutate(across(everything(), as.numeric))
+
+data_3$mean_insight = rowMeans(insight_cols, na.rm = TRUE)
+  
 
 
-S2_RQ1_1 = lm(Insight_seeking ~ factor(Q5), data = data_2)
-S2_RQ1_2 = lm(Explo_curiosity ~ factor(Q5), data = data_2)
-S2_RQ1_3 = lm(Morbid_curiosity ~ factor(Q5), data = data_2)
-S2_RQ1_4 = lm(Curiosty ~ factor(Q5), data = data_2)
+S3_RQ1_1 = lm(Insight_seeking ~ factor(Q5), data = data_3)
+S3_RQ1_2 = lm(Explo_curiosity ~ factor(Q5), data = data_3)
+S3_RQ1_3 = lm(Morbid_curiosity ~ factor(Q5), data = data_3)
 
-summary(S2_RQ1_1)
-```
-
-```{r}
-summary(S2_RQ1_2)
-```
-
-```{r}
 summary(S2_RQ1_3)
 ```
-```{r}
-summary(S2_RQ1_4)
-```
-```{r}
-library(jtools)
 
-export_summs(S2_RQ1_1, S2_RQ1_2, S2_RQ1_3, S2_RQ1_4, model.names = c("Insight_seeking", "Explo_curiosity", "Morbid_curiosity", "Curiosty"), error_pos = "right", to.file = "html",
-             file.name = "S2_RQ1.html")
+```{r export results}
+# library(jtools)
+
+# export_summs(S2_RQ1_1, S2_RQ1_2, S2_RQ1_3, S2_RQ1_4, model.names = c("Insight_seeking", "Explo_curiosity", "Morbid_curiosity", "Curiosty"), error_pos = "right", to.file = "html",
+#              file.name = "S2_RQ1.html")
 ```
 
 
 ```{r}
-S2_RQ2_1 = lm(Insight_seeking ~ factor(Q71), data = data_2)
-S2_RQ2_2 = lm(Explo_curiosity ~ factor(Q71), data = data_2)
-S2_RQ2_3 = lm(Morbid_curiosity ~ factor(Q71), data = data_2)
-S2_RQ2_4 = lm(Curiosty ~ factor(Q71), data = data_2)
+S3_RQ2_1 = lm(Insight_seeking ~ factor(Q71), data = data_3)
+S3_RQ2_2 = lm(Explo_curiosity ~ factor(Q71), data = data_3)
+S3_RQ2_3 = lm(Morbid_curiosity ~ factor(Q71), data = data_3)
 
-summary(S2_RQ2_1)
+summary(S3_RQ2_1)
 ```
 
 ```{r}
-summary(S2_RQ2_2)
+summary(S3_RQ2_2)
 ```
 
 ```{r}
-summary(S2_RQ2_3)
+summary(S3_RQ2_3)
 ```
 
-```{r}
-summary(S2_RQ2_4)
-```
 
 ```{r}
 # Descriptive Statistics:
 
-data_2_cfa %>% 
+data_3_cfa %>% 
   psych::describe()
 
 ```
 
 
 ```{r}
-export_summs(S2_RQ2_1, S2_RQ2_2, S2_RQ2_3, S2_RQ2_4, model.names = c("Insight_seeking", "Explo_curiosity", "Morbid_curiosity", "Curiosty"), error_pos = "right", to.file = "html",
-             file.name = "S2_RQ2.html")
+# export_summs(S3_RQ2_1, S3_RQ2_2, S3_RQ2_3, S3_RQ2_4, model.names = c("Insight_seeking", "Explo_curiosity", "Morbid_curiosity", "Curiosty"), error_pos = "right", to.file = "html",
+#              file.name = "S2_RQ2.html")
 
 ```
 
 ```{r}
-table(factor(data_2$Q71))
+table(factor(data_3$Q71))
 ```
 
 ```{r}
-kable(table(factor(data_2$Q5)), to.file = "html")
+kable(table(factor(data_3$Q5)), to.file = "html")
 ```
 
 
 ```{r}
 # apply as.numeric
 
-data_2$Novel_regularity = as.numeric(data_2$Novel_regularity)
-data_2$Movie_regularity = as.numeric(data_2$Movie_regularity)
-data_2$Nonfict_regularity = as.numeric(data_2$Nonfict_regularity)
-data_2$Game_regularity = as.numeric(data_2$Game_regularity)
-data_2$Docu_regularity = as.numeric(data_2$Docu_regularity)
+data_3$Novel_regularity = as.numeric(data_3$Novel_regularity)
+data_3$Movie_regularity = as.numeric(data_3$Movie_regularity)
+data_3$Nonfict_regularity = as.numeric(data_3$Nonfict_regularity)
+data_3$Game_regularity = as.numeric(data_3$Game_regularity)
+data_3$Docu_regularity = as.numeric(data_3$Docu_regularity)
 
 
-data_2$mean_comsumption = rowMeans(data_2[,c("Novel_regularity", "Movie_regularity", "Nonfict_regularity", "Docu_regularity")])
+data_3$mean_comsumption = rowMeans(data_3[,c("Novel_regularity", "Movie_regularity", "Nonfict_regularity", "Docu_regularity")])
 
-summary(lm(mean_comsumption ~ factor(Q5), data = data_2))
+summary(lm(mean_comsumption ~ factor(Q5), data = data_3))
 ```
 
 ```{r}
+summary(lm(mean_insight ~ factor(Q71), data = data_3))
+```
+
+# Study 4
+
+```{r}
+data_4 = read.csv("Data/Webb_incomplete_data.csv")
 ```
 
 ```{r}
+# pre_process data
+
+data_4 = drop_na(data_4)
+
+data_4 = data_4 %>% 
+  filter(X.Correct. == 1)
+
+# rename columns by remove X. and . from column names
+
+colnames(data_4) = gsub("X.", "", colnames(data_4))
+colnames(data_4) = gsub("\\.", "", colnames(data_4))
+
+# Recode Type value to 0 when the row value of the column Number is 1,2,3,4 or 5 and Type is 1
+
+data_4$Type = ifelse(data_4$Number %in% c(1,2,3,4,5) & data_4$Type == 1, 0, data_4$Type)
 ```
 
+```{r}
+# Descriptive Statistics:
+
+data_4 %>%
+  group_by(Type) %>% 
+  summarize(mean(Pleasure), sd(Pleasure), mean(Aha), sd(Aha))
+
+```
+
+
+## H1
+```{r}
+S4_H1_1 = lmer(scale(Pleasure) ~ scale(Aha) + (1 | Participant) + (1|Type/Number), data_4)
+
+S4_H1_2 = lmer(scale(Pleasure) ~ scale(Aha)*factor(Type) + (1 | Participant) + (1|Type/Number), data_4)
+```
+
+```{r}
+summary(S4_H1_1)
+```
+
+```{r}
+summary(S4_H1_2)
+```
+
+```{r to export}
+# export_summs(S4_H1_2, error_pos = "right", model.names = c("Pleasure reported after solving a problem"), to.file = "docx", file.name = "S4_H1_2.docx")
+```
+
+
+## H2
+
+```{r}
+
+# pivot wider the dataset with one line per participant
+
+data_4_wide_insight = data_4 %>%
+  filter(Type == 0) %>%
+  pivot_wider(id_cols = Participant, names_from = Number, values_from = c("Pleasure"))
+
+data_4_wide_non_insight = data_4 %>%
+  filter(Type == 1) %>%
+  pivot_wider(id_cols = Participant, names_from = Number, values_from = c("Pleasure"))
+
+data_4_wide_CRA = data_4 %>%
+  filter(Type == 2) %>%
+  pivot_wider(id_cols = Participant, names_from = Number, values_from = c("Pleasure"))
+
+
+# calculate pairwise correlation
+
+cor_matrix_insight = cor(data_4_wide_insight %>% select(-Participant), use = "pairwise.complete.obs")
+cor_matrix_non_insight = cor(data_4_wide_non_insight %>% select(-Participant), use = "pairwise.complete.obs")
+cor_matrix_CRA = cor(data_4_wide_CRA %>% select(-Participant), use = "pairwise.complete.obs")
+
+# calculate mean of the correlation matrix without the diagonal
+
+mean_cor_matrix_insight = mean(cor_matrix_insight[lower.tri(cor_matrix_insight)])
+mean_cor_matrix_non_insight = mean(cor_matrix_non_insight[lower.tri(cor_matrix_non_insight)])
+mean_cor_matrix_CRA = mean(cor_matrix_CRA[lower.tri(cor_matrix_CRA)])
+
+# calculate the standard deviation of the correlation matrix
+
+sd_cor_matrix_insight = sd(cor_matrix_insight[lower.tri(cor_matrix_insight)])
+sd_cor_matrix_non_insight = sd(cor_matrix_non_insight[lower.tri(cor_matrix_non_insight)])
+sd_cor_matrix_CRA = sd(cor_matrix_CRA[lower.tri(cor_matrix_CRA)])
+
+
+create_correlation_table <- function(cor_matrix, suffix) {
+  # Create variable names based on the provided suffix
+  var_names <- paste0("Pb_", suffix, "_", 1:length(colnames(cor_matrix)))
+  
+  # Order the correlation matrix based on the row and column names
+  ordered_cor_matrix <- cor_matrix[order(row.names(cor_matrix)), order(colnames(cor_matrix))]
+  
+  # Create a data frame to store the pairs and their correlations
+  correlation_table <- data.frame(Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
+  
+  # Loop through the ordered matrix to extract the values
+  for (i in 1:(length(var_names)-1)) {
+    for (j in (i+1):length(var_names)) {
+      pair <- sort(c(var_names[i], var_names[j]))
+      pair_name <- paste(pair[1], pair[2], sep="-")
+      
+      # Directly access the ordered matrix
+      cor_value <- ordered_cor_matrix[i, j]
+      
+      # Add the pair and the correlation value to the table
+      correlation_table <- rbind(correlation_table, data.frame(Pair = pair_name, Correlation = cor_value))
+    }
+  }
+  
+  rm(cor_value, i, j, pair, pair_name, var_names)
+  return(correlation_table)
+}
+
+# Apply the function to cor_matrix_insight, cor_matrix_non_insight, and cor_matrix_CRA
+correlation_table_insight <- create_correlation_table(cor_matrix_insight, "insight")
+correlation_table_non_insight <- create_correlation_table(cor_matrix_non_insight, "non_insight")
+correlation_table_CRA <- create_correlation_table(cor_matrix_CRA, "CRA")
+
+# Define a function for boostraping
+
+bootstrap_correlation <- function(data, suffix) {
+  
+  set.seed(123)  # Ensuring reproducibility
+  
+  n_iterations <- 1000 
+  
+  # Initialize an empty data frame to store the results from all iterations
+  all_bootstrap_results <- data.frame(Iteration = integer(), Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
+  
+  for (i in 1:n_iterations) {
+    # Randomize dataset: shuffle the ratings within each column
+    randomized_data <- as.data.frame(lapply(data %>% select(-Participant), sample))
+    
+    # Temporary storage for this iteration's results
+    iteration_results <- data.frame(Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
+    
+    # order colnames
+    randomized_data = randomized_data[, order(colnames(randomized_data))]
+    
+    var_names = paste0("Pb_", suffix, "_", 1:length(colnames(randomized_data)))
+    
+    # Compute pairwise correlations
+    for (m in 1:(length(var_names)-1)) {
+      for (n in (m+1):length(var_names)) {
+        # Ensure pair names are always in alphabetical order
+        pair <- sort(c(var_names[m], var_names[n]))
+        pair_name <- paste(pair[1], pair[2], sep="-")
+        
+        cor_value <- cor(randomized_data[[m]], randomized_data[[n]], use="pairwise.complete.obs")
+        
+        # Temporarily store the pair, its correlation, and iteration number
+        iteration_results <- rbind(iteration_results, data.frame(Pair = pair_name, Correlation = cor_value))
+      }
+    }
+    
+    # Add iteration number to the iteration_results
+    iteration_results$Iteration <- i
+    
+    # Combine this iteration's results with the main storage
+    all_bootstrap_results <- rbind(all_bootstrap_results, iteration_results)
+  }
+  
+  rm(n, n_iterations, pair, pair_name, var_names, m, i, cor_value, randomized_data)
+  
+  return(all_bootstrap_results)
+}
+
+# Apply the function to the data_4_wide_insight, data_4_wide_non_insight, and data_4_wide_CRA
+
+bootstrap_results_insight <- bootstrap_correlation(data_4_wide_insight, "insight")
+bootstrap_results_non_insight <- bootstrap_correlation(data_4_wide_non_insight, "non_insight")
+bootstrap_results_CRA <- bootstrap_correlation(data_4_wide_CRA, "CRA")
+```
+
+```{r}
+# plot the heatmap of each correlation matrix
+
+plot_correlation_heatmap <- function(cor_matrix, title) {
+  # Order the correlation matrix based on the row and column names treated numerically
+  ordered_cor_matrix = cor_matrix[order(as.numeric(row.names(cor_matrix))), order(as.numeric(colnames(cor_matrix)))]
+  
+  # Create a heatmap
+  p = ordered_cor_matrix %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "problem") %>%
+    gather(key = "problem2", value = "correlation", -problem) %>%
+    ggplot(aes(x = problem, y = problem2, fill = correlation)) +
+    geom_tile() +
+    geom_text(aes(label = round(correlation, 2))) +
+    scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(title = title, x = "Problem 1", y = "Problem 2", fill = "Correlation") +
+    theme(legend.position = "right") 
+  
+  return(p)
+}
+
+p1 = plot_correlation_heatmap(cor_matrix_insight, "Correlation Matrix Insight Problems")
+p2 = plot_correlation_heatmap(cor_matrix_non_insight, "Correlation Matrix Non-Insight Problems")
+p3 = plot_correlation_heatmap(cor_matrix_CRA, "Correlation Matrix CRA Problems")
+
+library(gridExtra)
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r}
+p3
+```
+
+
+
+
+```{r}
+# Aggregate bootstrap results to find mean correlation per iteration
+bootstrap_means_insight <- bootstrap_results_insight %>%
+  group_by(Iteration) %>%
+  summarise(MeanCorrelation = mean(Correlation, na.rm = TRUE))
+
+# Calculate the 95% confidence interval for the bootstrap means
+bootstrap_ci_insight <- quantile(bootstrap_means_insight$MeanCorrelation, probs = c(0.025, 0.975), na.rm = TRUE)
+
+# Assuming mean_cor is the mean of actual correlations from correlation_table
+is_significantly_higher_insight <- mean_cor_matrix_insight > bootstrap_ci_insight[2]  # Check if higher than upper CI bound
+
+# compute p-value
+p_value_insight = mean(bootstrap_means_insight$MeanCorrelation > mean_cor_matrix_insight)
+
+# Print the result
+print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher_insight, " with p-value ", p_value_insight))
+
+```
+```{r}
+# Aggregate bootstrap results to find mean correlation per iteration
+bootstrap_means_non_insight <- bootstrap_results_non_insight %>%
+  group_by(Iteration) %>%
+  summarise(MeanCorrelation = mean(Correlation, na.rm = TRUE))
+
+bootstrap_ci_non_insight <- quantile(bootstrap_means_non_insight$MeanCorrelation, probs = c(0.025, 0.975), na.rm = TRUE)
+
+is_significantly_higher <- mean_cor_matrix_non_insight > bootstrap_ci_non_insight[2]  # Check if higher than upper CI bound
+
+p_value_non_insight = mean(bootstrap_means_non_insight$MeanCorrelation > mean_cor_matrix_non_insight)
+
+print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher, " with p-value ", p_value_non_insight))
+```
+
+```{r}
+
+# Aggregate bootstrap results to find mean correlation per iteration
+bootstrap_means_CRA <- bootstrap_results_CRA %>%
+  group_by(Iteration) %>%
+  summarise(MeanCorrelation = mean(Correlation, na.rm = TRUE))
+
+bootstrap_ci_CRA <- quantile(bootstrap_means_CRA$MeanCorrelation, probs = c(0.025, 0.975), na.rm = TRUE)
+
+is_significantly_higher <- mean_cor_matrix_CRA > bootstrap_ci_CRA[2]  # Check if higher than upper CI bound
+
+p_value_CRA = mean(bootstrap_means_CRA$MeanCorrelation > mean_cor_matrix_CRA)
+
+print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher, " with p-value ", p_value_CRA))
+```
+
+```{r}
+
+# Plot the distribution of bootstrap mean correlations for the three datasets
+
+ggplot(bootstrap_means_insight, aes(x = MeanCorrelation)) +
+  geom_histogram(binwidth = 0.01, fill = "blue", color = "black", alpha = 0.5) +
+  geom_vline(xintercept = bootstrap_ci_insight[1], linetype = "dashed", color = "grey", size = 1) +  # Lower CI bound
+  geom_vline(xintercept = bootstrap_ci_insight[2], linetype = "dashed", color = "grey", size = 1) +  # Upper CI bound
+  geom_vline(xintercept = mean_cor_matrix_insight, color = ifelse(is_significantly_higher_insight, "green", "red"), size = 1.5) +  # Actual mean correlation
+  theme_minimal() +
+  labs(title = "Distribution of Bootstrap Mean Correlations for Insight Problems",
+       x = "Mean Correlation",
+       y = "Count") +
+  annotate("text", x = mean_cor_matrix_insight, y = Inf, label = sprintf("Actual mean: %.3f", mean_cor_matrix_insight), vjust = 2, hjust=1)
+
+```
+
+```{r}
+ggplot(bootstrap_means_non_insight, aes(x = MeanCorrelation)) +
+  geom_histogram(binwidth = 0.01, fill = "blue", color = "black", alpha = 0.5) +
+  geom_vline(xintercept = bootstrap_ci_non_insight[1], linetype = "dashed", color = "grey", size = 1) +  # Lower CI bound
+  geom_vline(xintercept = bootstrap_ci_non_insight[2], linetype = "dashed", color = "grey", size = 1) +  # Upper CI bound
+  geom_vline(xintercept = mean_cor_matrix_non_insight, color = ifelse(is_significantly_higher, "green", "red"), size = 1.5) +  # Actual mean correlation
+  theme_minimal() +
+  labs(title = "Distribution of Bootstrap Mean Correlations for Non-Insight Problems",
+       x = "Mean Correlation",
+       y = "Count") +
+  annotate("text", x = mean_cor_matrix_non_insight, y = Inf, label = sprintf("Actual mean: %.3f", mean_cor_matrix_non_insight), vjust = 2, hjust=1)
+```
+
+
+```{r}
+ggplot(bootstrap_means_CRA, aes(x = MeanCorrelation)) +
+  geom_histogram(binwidth = 0.01, fill = "blue", color = "black", alpha = 0.5) +
+  geom_vline(xintercept = bootstrap_ci_CRA[1], linetype = "dashed", color = "grey", size = 1) +  # Lower CI bound
+  geom_vline(xintercept = bootstrap_ci_CRA[2], linetype = "dashed", color = "grey", size = 1) +  # Upper CI bound
+  geom_vline(xintercept = mean_cor_matrix_CRA, color = ifelse(is_significantly_higher, "green", "red"), size = 1.5) +  # Actual mean correlation
+  theme_minimal() +
+  labs(title = "Distribution of Bootstrap Mean Correlations for CRA Problems",
+       x = "Mean Correlation",
+       y = "Count") +
+  annotate("text", x = mean_cor_matrix_CRA, y = Inf, label = sprintf("Actual mean: %.3f", mean_cor_matrix_CRA), vjust = 2, hjust=1)
+```
+
+## H3: CFA Model Fit
+
+```{r}
+# Rename the columns of data_4_wide_insight, data_4_wide_non_insight, and data_4_wide_CRA
+
+data_4_wide_insight <- data_4_wide_insight[, order(colnames(data_4_wide_insight))]
+data_4_wide_non_insight <- data_4_wide_non_insight[, order(colnames(data_4_wide_non_insight))]
+data_4_wide_CRA <- data_4_wide_CRA[, order(colnames(data_4_wide_CRA))]
+
+colnames(data_4_wide_insight) <- c(paste0("Pb_insight_", 1:(length(colnames(data_4_wide_insight))-1)), "Participant")
+colnames(data_4_wide_non_insight) <- c(paste0("Pb_non_insight_", 1:(length(colnames(data_4_wide_non_insight))-1)), "Participant")
+colnames(data_4_wide_CRA) <- c(paste0("Pb_CRA_", 1:(length(colnames(data_4_wide_CRA))-1)), "Participant")
+
+# Merge the three datasets
+data_4_CFA = merge(data_4_wide_insight, data_4_wide_non_insight, by = "Participant")
+data_4_CFA = merge(data_4_CFA, data_4_wide_CRA, by = "Participant")
+```
+
+```{r}
+model_S4_1 <- "
+  Insight_seeking =~ Pb_insight_1 + Pb_insight_2 + Pb_insight_3 + Pb_insight_4 + Pb_insight_5 + Pb_non_insight_1 + Pb_non_insight_2 + Pb_non_insight_3 + Pb_non_insight_4 + Pb_non_insight_5 + Pb_CRA_1 + Pb_CRA_2 + Pb_CRA_3 + Pb_CRA_4 + Pb_CRA_5 + Pb_CRA_6 + Pb_CRA_7 + Pb_CRA_8 + Pb_CRA_9 + Pb_CRA_10 + Pb_CRA_11 + Pb_CRA_12 + Pb_CRA_13 + Pb_CRA_14 + Pb_CRA_15 + Pb_CRA_16 + Pb_CRA_17 + Pb_CRA_18 + Pb_CRA_19 + Pb_CRA_20
+  
+  Classic_insight =~ Pb_insight_1 + Pb_insight_2 + Pb_insight_3 + Pb_insight_4 + Pb_insight_5
+  Classic_non_insight =~ Pb_non_insight_1 + Pb_non_insight_2 + Pb_non_insight_3 + Pb_non_insight_4 + Pb_non_insight_5
+  CRA =~ Pb_CRA_1 + Pb_CRA_2 + Pb_CRA_3 + Pb_CRA_4 + Pb_CRA_5 + Pb_CRA_6 + Pb_CRA_7 + Pb_CRA_8 + Pb_CRA_9 + Pb_CRA_10 + Pb_CRA_11 + Pb_CRA_12 + Pb_CRA_13 + Pb_CRA_14 + Pb_CRA_15 + Pb_CRA_16 + Pb_CRA_17 + Pb_CRA_18 + Pb_CRA_19 + Pb_CRA_20
+"
+
+model_S4_2 <- "
+  Classic_insight =~ Pb_insight_1 + Pb_insight_2 + Pb_insight_3 + Pb_insight_4 + Pb_insight_5
+  Classic_non_insight =~ Pb_non_insight_1 + Pb_non_insight_2 + Pb_non_insight_3 + Pb_non_insight_4 + Pb_non_insight_5
+  CRA =~ Pb_CRA_1 + Pb_CRA_2 + Pb_CRA_3 + Pb_CRA_4 + Pb_CRA_5 + Pb_CRA_6 + Pb_CRA_7 + Pb_CRA_8 + Pb_CRA_9 + Pb_CRA_10 + Pb_CRA_11 + Pb_CRA_12 + Pb_CRA_13 + Pb_CRA_14 + Pb_CRA_15 + Pb_CRA_16 + Pb_CRA_17 + Pb_CRA_18 + Pb_CRA_19 + Pb_CRA_20
+"
+
+fit_S4_1 = cfa(model_S4_1, data = data_4_CFA, missing = "fiml")
+fit_S4_2 = cfa(model_S4_2, data = data_4_CFA, missing = "fiml")
+```
+
+```{r}
+summary(fit_S4_1, standardized = TRUE, fit.measures = TRUE)
+```
+
+```{r}
+summary(fit_S4_2, standardized = TRUE, fit.measures = TRUE)
+```
+
+```{r}
+semTools::net(fit_S4_1, fit_S4_2)
+```
+
+```{r}
+lavTestLRT(fit_S4_1, fit_S4_2)
+```

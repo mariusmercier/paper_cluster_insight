@@ -1,8 +1,8 @@
 # Cluster of Insight seeking behavior
-This is the github repository for the following paper: *Cluster of insight seeking behaviors.* Authors are anonymous for the peer-review process.
+This is the github repository for the following paper: *Insight-seeking is consistent across domains and distinct from other forms of curiosity.* Authors are anonymous for the peer-review process.
 
 ## Introduction
-This github repository aims to be computationaly reproducible (in one click). Data and analysis code are provided. Materials are open (stimuli used and survey files). Pre-registrations are available on the osf project: https://osf.io/zyufe/
+This github repository aims to be computationaly reproducible (in one click). Data and analysis code are provided. Materials are open (stimuli used and survey files). Pre-registrations are available on the osf project: https://osf.io/zyufe/?view_only=04e85665a17644b98920016a38dd64d2
 
 ## Prerequisites
 - R version 4.2.2 (2022-10-31 ucrt)

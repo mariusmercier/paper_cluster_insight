@@ -1,5 +1,5 @@
 ---
-title: "Main Analysis, Variability of Insight Seeking"
+title: "Main and Supplementary Analysis, variability of Insight Seeking"
 date: "2024-04-03"
 output:
   pdf_document:
@@ -9,9 +9,6 @@ output:
 header-includes:
   - \usepackage{placeins}
 ---
-
-This is the Main Analysis for the Master thesis of Marius Mercier "One Feeling, Many Domains". Below are the code used to produce the analysis of the thesis.
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results = 'asis')
@@ -28,98 +25,43 @@ library(semTools)
 library(lmerTest)
 ```
 
+
+This R Markdown document contains the Main and Supplementary Analyses of the paper "Insight-seeking is consistent across domains and distinct from other forms of curiosity". It contains all the code necessary to reproduce the analyses and figures in the paper. The data used in this analysis is available in the `data` folder. The code is organized by study, and each study contains the following sections: data processing, confirmatory analysis, and exploratory analysis.
+
 # Study 1
-
-```{r Exploratory Analysis with Klopenstein data}
-
-data_Klopfenstein = read_csv("Data/Study4_Klopfenstein_2024.csv")
-stim_K = read_csv("Data/Stim_Klopfenstein_2024_with_topics.csv") #topic modelling in the .ipynb file.
-
-# correct index Stim_k
-
-stim_K$explanation_id = 1:nrow(stim_K)
-
-data_Klopfenstein = merge(data_Klopfenstein, stim_K, by = c("explanation_id"), how = "left")
-```
-
-## Descriptive Statistics
-
-```{r}
-data_Klopfenstein %>%
-  group_by(topic_name) %>%
-  summarize(mean_insight = mean(insight),
-            sd_insight = sd(insight),
-            mean_appeal = mean(appeal),
-            sd_appeal = sd(appeal))
-```
-
-
-## Manipulation Check
-
-```{r}
-# manipulation check
-S1_h1 = lmer(scale(appeal) ~ scale(insight) + (1|participant_id) + (1|explanation_id), data = data_Klopfenstein)
-
-summary(S1_h1)
-```
-
-## Confirmatory Analysis
-
-```{r confirmatory analysis S1}
-
-S1_h2 = lmer(scale(appeal) ~ scale(insight)*factor(topic_name) + (1|participant_id) + (1|explanation_id), data = data_Klopfenstein)
-
-# export_summs(S2_h2, error_pos = "right", model.names = c("Appeal of an explanation"), to.file = "docx", file.name = "S2_h2.docx")
-
-summary(S2_h2)
-```
-
-## Plot
-
-```{r}
-ggplot(data_Klopfenstein, aes(x = insight, y = appeal, group = topic_name, color = topic_name)) +
-  geom_jitter(width = 0.1, height = 0.1, alpha = 0.6) +
-  geom_smooth(method = "lm", se = FALSE) +
-  labs(title = "Relationship between Insight and Appeal",
-       x = "Insight",
-       y = "Appeal") +
-  theme_minimal()
-```
-
-# Study 2
 
 ```{r}
 # Prepare dataset and demographics
 
-data_2 = read_csv("Data/Study1_data.csv")
+data_1 = read_csv("Data/Study1_data.csv")
 
 # Suppress people who did not understand explanation of insight
-data_2 = data_2 %>% filter(Q6 == 2)
+data_1 = data_1 %>% filter(Q6 == 2)
 
 # Select columns with ratings of enjoyment and transform in numeric
 media_columns = c("Novel_enjoy", "Movie_enjoy", "Science_enjoy", "Puzzle_enjoy", "Game_enjoy", "Docu_enjoy")
-media_ratings = data_2[media_columns]
+media_ratings = data_1[media_columns]
 media_ratings[] <- lapply(media_ratings, function(x) as.numeric(as.character(x)))
 
 media_columns_frequency = c("Novel_regularity", "Movie_regularity", "Science_regularity", "Puzzle_regularity", "Game_regularity", "Docu_regularity")
-media_frequency = data_2[media_columns_frequency]
+media_frequency = data_1[media_columns_frequency]
 media_frequency[] <- lapply(media_frequency, function(x) as.numeric(as.character(x)))
 
 # Demographics
-demo_2 = read_csv("Data/Study1_demo.csv")
-demo_2$PROLIFIC_PID = demo_2[["Participant id"]]
+demo_1 = read_csv("Data/Study1_demo.csv")
+demo_1$PROLIFIC_PID = demo_1[["Participant id"]]
 
 # Merge datasets
-data_2 = left_join(data_2, demo_2, by = "PROLIFIC_PID")
+data_1 = left_join(data_1, demo_1, by = "PROLIFIC_PID")
 
 # Summary stats of participants
-table(data_2$Sex)
-mean(as.numeric(data_2$Age), na.rm = TRUE)
-sd(data_2$Age, na.rm = TRUE)
+table(data_1$Sex)
+mean(as.numeric(data_1$Age), na.rm = TRUE)
+sd(data_1$Age, na.rm = TRUE)
 
 ```
 
-## Descriptive Statistics
+## Descriptive Statistics (ESM)
 
 ```{r}
 media_ratings %>%
@@ -143,7 +85,8 @@ media_frequency %>%
 **H1**: The mean of all pairwise correlations will be significantly different from chance
 
 ```{r}
-# Calculate pairwise correlations
+### Compute actual correlations ###
+
 cor_matrix <- cor(media_ratings, use="pairwise.complete.obs")
 
 # Extract lower triangle without the diagonal
@@ -169,28 +112,8 @@ for (i in 1:(length(var_names)-1)) {
 }
 
 rm(cor_value, cor_values, i, j, pair, pair_name, var_names)
-```
 
-```{r plot}
-# plot the correlation matrix with a heatmap with the value of correlations
-cor_matrix %>%
-  as.data.frame() %>%
-  rownames_to_column(var = "media") %>%
-  gather(key = "media2", value = "correlation", -media) %>%
-  ggplot(aes(x = media, y = media2, fill = correlation)) +
-  geom_tile() +
-  geom_text(aes(label = round(correlation, 2))) +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(title = "Correlation matrix of media ratings", x = "Media 1", y = "Media 2", fill = "Correlation") +
-  theme(legend.position = "right") 
-```
-
-
-```{r Bootstrapping}
-
-# Bootstrapping ####
+### Bootstrapping ###
 
 set.seed(123)  # Ensuring reproducibility
 
@@ -231,9 +154,8 @@ for (i in 1:n_iterations) {
 
 rm(n, n_iterations, pair, pair_name, var_names, m, i, cor_value, randomized_data)
 
-```
+### Compare bootstrapped results with actual data ###
 
-```{r Pre-registered test}
 # Aggregate bootstrap results to find mean correlation per iteration
 bootstrap_means <- all_bootstrap_results %>%
   group_by(Iteration) %>%
@@ -249,11 +171,11 @@ is_significantly_higher <- mean_cor > bootstrap_ci[2]  # Check if higher than up
 p_value = mean(bootstrap_means$MeanCorrelation > mean_cor)
 
 # Print the result
-print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher, " with p_val of" p_value))
+print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher, " with p_val of", p_value))
 
 ```
 
-```{r}
+```{r figure 1}
 ggplot(bootstrap_means, aes(x = MeanCorrelation)) +
   geom_histogram(binwidth = 0.01, fill = "blue", color = "black", alpha = 0.5) +
   geom_vline(xintercept = bootstrap_ci[1], linetype = "dashed", color = "grey", size = 1) +  # Lower CI bound
@@ -266,42 +188,27 @@ ggplot(bootstrap_means, aes(x = MeanCorrelation)) +
   annotate("text", x = mean_cor, y = Inf, label = sprintf("Actual mean: %.3f", mean_cor), vjust = 2, hjust=1)
 ```
 
+## ESM
 
-## Exploratory Analyses
-
-```{r Analyses Plot for each pairs}
-
-# Assuming correlation_table contains the actual data correlations
-# And mean_cor is the mean of these correlations
-
-# Create a data frame for the vertical lines
-vlines_data <- correlation_table
-
-# Assign unique colors to each pair (and the mean score)
-vlines_data$Color <- factor(vlines_data$Pair)
-
-# Specify colors manually if preferred, or use a color palette
-# This example uses a palette for demonstration; replace with your desired colors
-num_colors <- length(unique(vlines_data$Color))
-palette <- hcl.colors(num_colors, "Viridis")
-names(palette) <- levels(vlines_data$Color)
-
-ggplot(all_bootstrap_results, aes(x = Correlation)) +
-  geom_histogram(binwidth = 0.05, fill = "blue", color = "black") +
-  geom_vline(data = vlines_data, aes(xintercept = Correlation, color = Color), size = 1) +  # Vertical lines for each pair
-  geom_vline(xintercept = mean_cor, color = "red", size = 2) +  # Larger line for mean score
-  scale_color_manual(values = palette) +  # Apply the color palette
+```{r figure S3}
+# plot the correlation matrix with a heatmap with the value of correlations
+cor_matrix %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "media") %>%
+  gather(key = "media2", value = "correlation", -media) %>%
+  ggplot(aes(x = media, y = media2, fill = correlation)) +
+  geom_tile() +
+  geom_text(aes(label = round(correlation, 2))) +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
   theme_minimal() +
-  labs(title = "Distribution of Correlations from Bootstrap Analysis compared to actual distribution of correlations",
-       x = "Correlation",
-       y = "Count",
-       color = "Pair") +  # Legend title
-  theme(legend.position = "right")
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Correlation matrix of media ratings", x = "Media 1", y = "Media 2", fill = "Correlation") +
+  theme(legend.position = "right") 
 ```
 
 **RQ1**: What pairwise correlations across media are significantly different from chance?
 
-```{r Test by Media Association}
+```{r figure S4}
 # Calculate 95% Confidence Intervals for each Pair
 bootstrap_cis <- all_bootstrap_results %>%
   group_by(Pair) %>%
@@ -339,140 +246,47 @@ ggplot(all_bootstrap_results, aes(x = Correlation)) +
   theme(legend.position = "none")  # No legend needed as colors are self-explanatory
 
 ```
-**RQ2**: Is childhood SES related to how much participants enjoy insightful materials?
 
 ```{r}
-media_ratings$mean_enjoyment = rowMeans(media_ratings, na.rm = TRUE)
-
-data_2$mean_enjoyment = media_ratings$mean_enjoyment
-
-data_2$SES_Child_1 = as.numeric(data_2$SES_Child_1)
-data_2$SES_Child_2 = as.numeric(data_2$SES_Child_2)
-data_2$SES_Child_3 = as.numeric(data_2$SES_Child_3)
-
-data_2$mean_child_SES = rowMeans(data_2[, c("SES_Child_1", "SES_Child_2", "SES_Child_3")], na.rm = TRUE)
-
-S1_rq2 = lm(mean_enjoyment ~ mean_child_SES, data = data_2)
-
-export_summs(S1_rq2, model.names = c("Mean Enjoyment"))
-```
-\FloatBarrier
-
-**RQ3.** Is current SES related to how much participants enjoy insightful materials?
-
-```{r}
-
-data_2$SES_Now_1 = as.numeric(data_2$SES_Now_1)
-data_2$SES_Now_2 = as.numeric(data_2$SES_Now_2)
-data_2$SES_Now_3 = as.numeric(data_2$SES_Now_3)
-
-data_2$mean_now_SES = rowMeans(data_2[, c("SES_Now_1", "SES_Now_2", "SES_Now_3")], na.rm = TRUE)
-
-S1_rq3 = lm(mean_enjoyment ~ mean_now_SES, data = data_2)
-
-export_summs(S1_rq3, model.names = c("Mean Enjoyment"))
+# if needed, you can clean all memory at this point:  
+# rm(list = ls())
 ```
 
 
-```{r}
-data_2$age = as.numeric(data_2$age)
-
-S1_rq4 = lm(mean_enjoyment ~ scale(age), data = data_2)
-
-export_summs(S1_rq4, model.names = c("Mean Enjoyment"))
-```
-
-```{r}
-summary(S1_rq4)
-```
-
-```{r Rain cloud plot plots}
-media_ratings_long = media_ratings %>% 
-  gather(key = "media", value = "rating") %>% 
-  filter(!is.na(rating))
-
-ggplot(media_ratings_long, aes(y = rating, x = media)) +
-  ggdist::stat_halfeye(
-    adjust = 2, 
-    width = .6, 
-    .width = 0, 
-    justification = -.3, 
-    point_colour = NA,
-    fill = "#9FE2BF"
-  )  +
-  geom_boxplot(
-    width = .25, 
-    outlier.shape = NA,
-    fill = "#9FE2BF"
-  ) +
-  geom_point(
-    size = 1.3,
-    alpha = .3,
-    position = position_jitter(seed = 1, width = .1),
-    fill = "#9FE2BF"
-  ) + 
-  ylab("Enjoyment") +
-  xlab("") +
-  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
-  theme_minimal()
-
-```
-
-**RQ5**: Is there a cluster of people who never like insight stimuli?
-
-```{r}
-
-data_2$never_like = rowSums(select(media_ratings, -Puzzle_enjoy) < 4, na.rm = TRUE)
-
-ggplot(data_2, aes(x = never_like)) +
-  geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.5) +
-  labs(title = "Distribution of Number of Media Categories where insight is not enjoyed (<4)",
-       x = "Number of Media Categories",
-       y = "Count") +
-  theme_minimal()
-
-```
-
-
-# Study 3
+# Study 2
 
 ```{r, data preparation}
-data_3 = read_csv("Data/Study2_data.csv")
+data_2 = read_csv("Data/Study2_data.csv")
 
 # filter out participants who did not understand insight
-data_3 = data_3 %>%
+data_2 = data_2 %>%
   filter(Q6 == 2)
 
 # add demographics
-data_3_demo = read_csv("Data/Study2_demo.csv")
-data_3_demo$PROLIFIC_PID = data_3_demo[["Participant id"]]
+demo_2 = read_csv("Data/Study2_demo.csv")
+demo_2$PROLIFIC_PID = demo_2[["Participant id"]]
 
-data_3 <- left_join(data_3, 
-                    data_3_demo %>% select(PROLIFIC_PID, Age, Sex), 
+data_2 <- left_join(data_2, 
+                    demo_2 %>% select(PROLIFIC_PID, Age, Sex), 
                     by = "PROLIFIC_PID")
 
-table(data_3$Sex)
+table(data_2$Sex)
 
-data_3 %>% 
+data_2 %>% 
   summarise(
     mean_Age = mean(as.numeric(Age), na.rm = TRUE),
-    sd_Age = sd(Age, na.rm = TRUE)
-  )
-```
-
-
-```{r}
-data_3 %>%
-  summarize(mean_time = mean(as.numeric(`Duration (in seconds)`), na.rm = TRUE), sd_time = sd(as.numeric(`Duration (in seconds)`), na.rm = TRUE))
+    sd_Age = sd(Age, na.rm = TRUE),
+    mean_time = mean(as.numeric(`Duration (in seconds)`), na.rm = TRUE), 
+    sd_time = sd(as.numeric(`Duration (in seconds)`), na.rm = TRUE))
 ```
 
 ```{r}
-data_3_cfa = data_3 %>%
+data_2_cfa = data_2 %>%
   select(starts_with("Novel"), starts_with("Movie"), starts_with("Nonfict"), starts_with("Game"), starts_with("Docu")) %>%
   lapply(as.numeric) %>%
   as.data.frame()
 
-data_3_cfa$ResponseId = data_3$ResponseId
+data_2_cfa$ResponseId = data_2$ResponseId
 ```
 
 
@@ -496,7 +310,7 @@ model_1 <- "
   Docu =~ Docu_insight + Docu_explo + Docu_morbid
 "
 
-fit_1 = cfa(model_1, data = data_3_cfa, missing = "fiml", optim.method = "BFGS")
+fit_1 = cfa(model_1, data = data_2_cfa, missing = "fiml", optim.method = "BFGS")
 
 summary(fit_1, fit.measures = TRUE)
 ```
@@ -515,7 +329,7 @@ model_2 <- "
   Docu =~ Docu_insight + Docu_explo + Docu_morbid
 "
 
-fit_2 = cfa(model_2, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
+fit_2 = cfa(model_2, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
 
 summary(fit_2, standardized = TRUE, fit.measures = TRUE)
 ```
@@ -547,9 +361,9 @@ model_5 <- "
   Docu =~ Docu_insight + Docu_explo + Docu_morbid
 "
 
-fit_3 = cfa(model_3, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
-fit_4 = cfa(model_4, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
-fit_5 = cfa(model_5, data = data_3_cfa, missing = "FIML", optim.method = "BFGS")
+fit_3 = cfa(model_3, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
+fit_4 = cfa(model_4, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
+fit_5 = cfa(model_5, data = data_2_cfa, missing = "FIML", optim.method = "BFGS")
 ```
 
 ## Manipulation Check
@@ -565,13 +379,6 @@ lavaan::lavTestLRT(fit_1, fit_2)
 
 ## Exploratory Analysis
 
-```{r}
-lavaan::lavTestLRT(fit_2, fit_5)
-
-lavaan::lavTestLRT(fit_1, fit_3)
-
-lavaan::lavTestLRT(fit_3, fit_4)
-```
 
 ```{r}
 # create a subset without morbid curiosity
@@ -809,370 +616,63 @@ summary(lm(mean_comsumption ~ factor(Q5), data = data_3))
 summary(lm(mean_insight ~ factor(Q71), data = data_3))
 ```
 
-# Study 4
+# Study 3
+
+```{r Exploratory Analysis with Klopenstein data}
+
+data_Klopfenstein = read_csv("Data/Study4_Klopfenstein_2024.csv")
+stim_K = read_csv("Data/Stim_Klopfenstein_2024_with_topics.csv") #topic modelling in the .ipynb file.
+
+# correct index Stim_k
+
+stim_K$explanation_id = 1:nrow(stim_K)
+
+data_Klopfenstein = merge(data_Klopfenstein, stim_K, by = c("explanation_id"), how = "left")
+```
+
+## Descriptive Statistics
 
 ```{r}
-data_4 = read.csv("Data/Webb_incomplete_data.csv")
+data_Klopfenstein %>%
+  group_by(topic_name) %>%
+  summarize(mean_insight = mean(insight),
+            sd_insight = sd(insight),
+            mean_appeal = mean(appeal),
+            sd_appeal = sd(appeal))
 ```
+
+
+## Manipulation Check
 
 ```{r}
-# pre_process data
+# manipulation check
+S1_h1 = lmer(scale(appeal) ~ scale(insight) + (1|participant_id) + (1|explanation_id), data = data_Klopfenstein)
 
-data_4 = drop_na(data_4)
-
-data_4 = data_4 %>% 
-  filter(X.Correct. == 1)
-
-# rename columns by remove X. and . from column names
-
-colnames(data_4) = gsub("X.", "", colnames(data_4))
-colnames(data_4) = gsub("\\.", "", colnames(data_4))
-
-# Recode Type value to 0 when the row value of the column Number is 1,2,3,4 or 5 and Type is 1
-
-data_4$Type = ifelse(data_4$Number %in% c(1,2,3,4,5) & data_4$Type == 1, 0, data_4$Type)
+summary(S1_h1)
 ```
+
+## Confirmatory Analysis
+
+```{r confirmatory analysis S1}
+
+S1_h2 = lmer(scale(appeal) ~ scale(insight)*factor(topic_name) + (1|participant_id) + (1|explanation_id), data = data_Klopfenstein)
+
+# export_summs(S2_h2, error_pos = "right", model.names = c("Appeal of an explanation"), to.file = "docx", file.name = "S2_h2.docx")
+
+summary(S2_h2)
+```
+
+## Plot
 
 ```{r}
-# Descriptive Statistics:
-
-data_4 %>%
-  group_by(Type) %>% 
-  summarize(mean(Pleasure), sd(Pleasure), mean(Aha), sd(Aha))
-
-```
-
-
-## H1
-```{r}
-S4_H1_1 = lmer(scale(Pleasure) ~ scale(Aha) + (1 | Participant) + (1|Type/Number), data_4)
-
-S4_H1_2 = lmer(scale(Pleasure) ~ scale(Aha)*factor(Type) + (1 | Participant) + (1|Type/Number), data_4)
-```
-
-```{r}
-summary(S4_H1_1)
-```
-
-```{r}
-summary(S4_H1_2)
-```
-
-```{r to export}
-# export_summs(S4_H1_2, error_pos = "right", model.names = c("Pleasure reported after solving a problem"), to.file = "docx", file.name = "S4_H1_2.docx")
-```
-
-
-## H2
-
-```{r}
-
-# pivot wider the dataset with one line per participant
-
-data_4_wide_insight = data_4 %>%
-  filter(Type == 0) %>%
-  pivot_wider(id_cols = Participant, names_from = Number, values_from = c("Pleasure"))
-
-data_4_wide_non_insight = data_4 %>%
-  filter(Type == 1) %>%
-  pivot_wider(id_cols = Participant, names_from = Number, values_from = c("Pleasure"))
-
-data_4_wide_CRA = data_4 %>%
-  filter(Type == 2) %>%
-  pivot_wider(id_cols = Participant, names_from = Number, values_from = c("Pleasure"))
-
-
-# calculate pairwise correlation
-
-cor_matrix_insight = cor(data_4_wide_insight %>% select(-Participant), use = "pairwise.complete.obs")
-cor_matrix_non_insight = cor(data_4_wide_non_insight %>% select(-Participant), use = "pairwise.complete.obs")
-cor_matrix_CRA = cor(data_4_wide_CRA %>% select(-Participant), use = "pairwise.complete.obs")
-
-# calculate mean of the correlation matrix without the diagonal
-
-mean_cor_matrix_insight = mean(cor_matrix_insight[lower.tri(cor_matrix_insight)])
-mean_cor_matrix_non_insight = mean(cor_matrix_non_insight[lower.tri(cor_matrix_non_insight)])
-mean_cor_matrix_CRA = mean(cor_matrix_CRA[lower.tri(cor_matrix_CRA)])
-
-# calculate the standard deviation of the correlation matrix
-
-sd_cor_matrix_insight = sd(cor_matrix_insight[lower.tri(cor_matrix_insight)])
-sd_cor_matrix_non_insight = sd(cor_matrix_non_insight[lower.tri(cor_matrix_non_insight)])
-sd_cor_matrix_CRA = sd(cor_matrix_CRA[lower.tri(cor_matrix_CRA)])
-
-
-create_correlation_table <- function(cor_matrix, suffix) {
-  # Create variable names based on the provided suffix
-  var_names <- paste0("Pb_", suffix, "_", 1:length(colnames(cor_matrix)))
-  
-  # Order the correlation matrix based on the row and column names
-  ordered_cor_matrix <- cor_matrix[order(row.names(cor_matrix)), order(colnames(cor_matrix))]
-  
-  # Create a data frame to store the pairs and their correlations
-  correlation_table <- data.frame(Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
-  
-  # Loop through the ordered matrix to extract the values
-  for (i in 1:(length(var_names)-1)) {
-    for (j in (i+1):length(var_names)) {
-      pair <- sort(c(var_names[i], var_names[j]))
-      pair_name <- paste(pair[1], pair[2], sep="-")
-      
-      # Directly access the ordered matrix
-      cor_value <- ordered_cor_matrix[i, j]
-      
-      # Add the pair and the correlation value to the table
-      correlation_table <- rbind(correlation_table, data.frame(Pair = pair_name, Correlation = cor_value))
-    }
-  }
-  
-  rm(cor_value, i, j, pair, pair_name, var_names)
-  return(correlation_table)
-}
-
-# Apply the function to cor_matrix_insight, cor_matrix_non_insight, and cor_matrix_CRA
-correlation_table_insight <- create_correlation_table(cor_matrix_insight, "insight")
-correlation_table_non_insight <- create_correlation_table(cor_matrix_non_insight, "non_insight")
-correlation_table_CRA <- create_correlation_table(cor_matrix_CRA, "CRA")
-
-# Define a function for boostraping
-
-bootstrap_correlation <- function(data, suffix) {
-  
-  set.seed(123)  # Ensuring reproducibility
-  
-  n_iterations <- 1000 
-  
-  # Initialize an empty data frame to store the results from all iterations
-  all_bootstrap_results <- data.frame(Iteration = integer(), Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
-  
-  for (i in 1:n_iterations) {
-    # Randomize dataset: shuffle the ratings within each column
-    randomized_data <- as.data.frame(lapply(data %>% select(-Participant), sample))
-    
-    # Temporary storage for this iteration's results
-    iteration_results <- data.frame(Pair = character(), Correlation = numeric(), stringsAsFactors = FALSE)
-    
-    # order colnames
-    randomized_data = randomized_data[, order(colnames(randomized_data))]
-    
-    var_names = paste0("Pb_", suffix, "_", 1:length(colnames(randomized_data)))
-    
-    # Compute pairwise correlations
-    for (m in 1:(length(var_names)-1)) {
-      for (n in (m+1):length(var_names)) {
-        # Ensure pair names are always in alphabetical order
-        pair <- sort(c(var_names[m], var_names[n]))
-        pair_name <- paste(pair[1], pair[2], sep="-")
-        
-        cor_value <- cor(randomized_data[[m]], randomized_data[[n]], use="pairwise.complete.obs")
-        
-        # Temporarily store the pair, its correlation, and iteration number
-        iteration_results <- rbind(iteration_results, data.frame(Pair = pair_name, Correlation = cor_value))
-      }
-    }
-    
-    # Add iteration number to the iteration_results
-    iteration_results$Iteration <- i
-    
-    # Combine this iteration's results with the main storage
-    all_bootstrap_results <- rbind(all_bootstrap_results, iteration_results)
-  }
-  
-  rm(n, n_iterations, pair, pair_name, var_names, m, i, cor_value, randomized_data)
-  
-  return(all_bootstrap_results)
-}
-
-# Apply the function to the data_4_wide_insight, data_4_wide_non_insight, and data_4_wide_CRA
-
-bootstrap_results_insight <- bootstrap_correlation(data_4_wide_insight, "insight")
-bootstrap_results_non_insight <- bootstrap_correlation(data_4_wide_non_insight, "non_insight")
-bootstrap_results_CRA <- bootstrap_correlation(data_4_wide_CRA, "CRA")
-```
-
-```{r}
-# plot the heatmap of each correlation matrix
-
-plot_correlation_heatmap <- function(cor_matrix, title) {
-  # Order the correlation matrix based on the row and column names treated numerically
-  ordered_cor_matrix = cor_matrix[order(as.numeric(row.names(cor_matrix))), order(as.numeric(colnames(cor_matrix)))]
-  
-  # Create a heatmap
-  p = ordered_cor_matrix %>%
-    as.data.frame() %>%
-    rownames_to_column(var = "problem") %>%
-    gather(key = "problem2", value = "correlation", -problem) %>%
-    ggplot(aes(x = problem, y = problem2, fill = correlation)) +
-    geom_tile() +
-    geom_text(aes(label = round(correlation, 2))) +
-    scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    labs(title = title, x = "Problem 1", y = "Problem 2", fill = "Correlation") +
-    theme(legend.position = "right") 
-  
-  return(p)
-}
-
-p1 = plot_correlation_heatmap(cor_matrix_insight, "Correlation Matrix Insight Problems")
-p2 = plot_correlation_heatmap(cor_matrix_non_insight, "Correlation Matrix Non-Insight Problems")
-p3 = plot_correlation_heatmap(cor_matrix_CRA, "Correlation Matrix CRA Problems")
-
-library(gridExtra)
-
-grid.arrange(p1, p2, ncol = 2)
-```
-
-```{r}
-p3
+ggplot(data_Klopfenstein, aes(x = insight, y = appeal, group = topic_name, color = topic_name)) +
+  geom_jitter(width = 0.1, height = 0.1, alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Relationship between Insight and Appeal",
+       x = "Insight",
+       y = "Appeal") +
+  theme_minimal()
 ```
 
 
 
-
-```{r}
-# Aggregate bootstrap results to find mean correlation per iteration
-bootstrap_means_insight <- bootstrap_results_insight %>%
-  group_by(Iteration) %>%
-  summarise(MeanCorrelation = mean(Correlation, na.rm = TRUE))
-
-# Calculate the 95% confidence interval for the bootstrap means
-bootstrap_ci_insight <- quantile(bootstrap_means_insight$MeanCorrelation, probs = c(0.025, 0.975), na.rm = TRUE)
-
-# Assuming mean_cor is the mean of actual correlations from correlation_table
-is_significantly_higher_insight <- mean_cor_matrix_insight > bootstrap_ci_insight[2]  # Check if higher than upper CI bound
-
-# compute p-value
-p_value_insight = mean(bootstrap_means_insight$MeanCorrelation > mean_cor_matrix_insight)
-
-# Print the result
-print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher_insight, " with p-value ", p_value_insight))
-
-```
-```{r}
-# Aggregate bootstrap results to find mean correlation per iteration
-bootstrap_means_non_insight <- bootstrap_results_non_insight %>%
-  group_by(Iteration) %>%
-  summarise(MeanCorrelation = mean(Correlation, na.rm = TRUE))
-
-bootstrap_ci_non_insight <- quantile(bootstrap_means_non_insight$MeanCorrelation, probs = c(0.025, 0.975), na.rm = TRUE)
-
-is_significantly_higher <- mean_cor_matrix_non_insight > bootstrap_ci_non_insight[2]  # Check if higher than upper CI bound
-
-p_value_non_insight = mean(bootstrap_means_non_insight$MeanCorrelation > mean_cor_matrix_non_insight)
-
-print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher, " with p-value ", p_value_non_insight))
-```
-
-```{r}
-
-# Aggregate bootstrap results to find mean correlation per iteration
-bootstrap_means_CRA <- bootstrap_results_CRA %>%
-  group_by(Iteration) %>%
-  summarise(MeanCorrelation = mean(Correlation, na.rm = TRUE))
-
-bootstrap_ci_CRA <- quantile(bootstrap_means_CRA$MeanCorrelation, probs = c(0.025, 0.975), na.rm = TRUE)
-
-is_significantly_higher <- mean_cor_matrix_CRA > bootstrap_ci_CRA[2]  # Check if higher than upper CI bound
-
-p_value_CRA = mean(bootstrap_means_CRA$MeanCorrelation > mean_cor_matrix_CRA)
-
-print(paste("Is the actual mean correlation significantly higher? ", is_significantly_higher, " with p-value ", p_value_CRA))
-```
-
-```{r}
-
-# Plot the distribution of bootstrap mean correlations for the three datasets
-
-ggplot(bootstrap_means_insight, aes(x = MeanCorrelation)) +
-  geom_histogram(binwidth = 0.01, fill = "blue", color = "black", alpha = 0.5) +
-  geom_vline(xintercept = bootstrap_ci_insight[1], linetype = "dashed", color = "grey", size = 1) +  # Lower CI bound
-  geom_vline(xintercept = bootstrap_ci_insight[2], linetype = "dashed", color = "grey", size = 1) +  # Upper CI bound
-  geom_vline(xintercept = mean_cor_matrix_insight, color = ifelse(is_significantly_higher_insight, "green", "red"), size = 1.5) +  # Actual mean correlation
-  theme_minimal() +
-  labs(title = "Distribution of Bootstrap Mean Correlations for Insight Problems",
-       x = "Mean Correlation",
-       y = "Count") +
-  annotate("text", x = mean_cor_matrix_insight, y = Inf, label = sprintf("Actual mean: %.3f", mean_cor_matrix_insight), vjust = 2, hjust=1)
-
-```
-
-```{r}
-ggplot(bootstrap_means_non_insight, aes(x = MeanCorrelation)) +
-  geom_histogram(binwidth = 0.01, fill = "blue", color = "black", alpha = 0.5) +
-  geom_vline(xintercept = bootstrap_ci_non_insight[1], linetype = "dashed", color = "grey", size = 1) +  # Lower CI bound
-  geom_vline(xintercept = bootstrap_ci_non_insight[2], linetype = "dashed", color = "grey", size = 1) +  # Upper CI bound
-  geom_vline(xintercept = mean_cor_matrix_non_insight, color = ifelse(is_significantly_higher, "green", "red"), size = 1.5) +  # Actual mean correlation
-  theme_minimal() +
-  labs(title = "Distribution of Bootstrap Mean Correlations for Non-Insight Problems",
-       x = "Mean Correlation",
-       y = "Count") +
-  annotate("text", x = mean_cor_matrix_non_insight, y = Inf, label = sprintf("Actual mean: %.3f", mean_cor_matrix_non_insight), vjust = 2, hjust=1)
-```
-
-
-```{r}
-ggplot(bootstrap_means_CRA, aes(x = MeanCorrelation)) +
-  geom_histogram(binwidth = 0.01, fill = "blue", color = "black", alpha = 0.5) +
-  geom_vline(xintercept = bootstrap_ci_CRA[1], linetype = "dashed", color = "grey", size = 1) +  # Lower CI bound
-  geom_vline(xintercept = bootstrap_ci_CRA[2], linetype = "dashed", color = "grey", size = 1) +  # Upper CI bound
-  geom_vline(xintercept = mean_cor_matrix_CRA, color = ifelse(is_significantly_higher, "green", "red"), size = 1.5) +  # Actual mean correlation
-  theme_minimal() +
-  labs(title = "Distribution of Bootstrap Mean Correlations for CRA Problems",
-       x = "Mean Correlation",
-       y = "Count") +
-  annotate("text", x = mean_cor_matrix_CRA, y = Inf, label = sprintf("Actual mean: %.3f", mean_cor_matrix_CRA), vjust = 2, hjust=1)
-```
-
-## H3: CFA Model Fit
-
-```{r}
-# Rename the columns of data_4_wide_insight, data_4_wide_non_insight, and data_4_wide_CRA
-
-data_4_wide_insight <- data_4_wide_insight[, order(colnames(data_4_wide_insight))]
-data_4_wide_non_insight <- data_4_wide_non_insight[, order(colnames(data_4_wide_non_insight))]
-data_4_wide_CRA <- data_4_wide_CRA[, order(colnames(data_4_wide_CRA))]
-
-colnames(data_4_wide_insight) <- c(paste0("Pb_insight_", 1:(length(colnames(data_4_wide_insight))-1)), "Participant")
-colnames(data_4_wide_non_insight) <- c(paste0("Pb_non_insight_", 1:(length(colnames(data_4_wide_non_insight))-1)), "Participant")
-colnames(data_4_wide_CRA) <- c(paste0("Pb_CRA_", 1:(length(colnames(data_4_wide_CRA))-1)), "Participant")
-
-# Merge the three datasets
-data_4_CFA = merge(data_4_wide_insight, data_4_wide_non_insight, by = "Participant")
-data_4_CFA = merge(data_4_CFA, data_4_wide_CRA, by = "Participant")
-```
-
-```{r}
-model_S4_1 <- "
-  Insight_seeking =~ Pb_insight_1 + Pb_insight_2 + Pb_insight_3 + Pb_insight_4 + Pb_insight_5 + Pb_non_insight_1 + Pb_non_insight_2 + Pb_non_insight_3 + Pb_non_insight_4 + Pb_non_insight_5 + Pb_CRA_1 + Pb_CRA_2 + Pb_CRA_3 + Pb_CRA_4 + Pb_CRA_5 + Pb_CRA_6 + Pb_CRA_7 + Pb_CRA_8 + Pb_CRA_9 + Pb_CRA_10 + Pb_CRA_11 + Pb_CRA_12 + Pb_CRA_13 + Pb_CRA_14 + Pb_CRA_15 + Pb_CRA_16 + Pb_CRA_17 + Pb_CRA_18 + Pb_CRA_19 + Pb_CRA_20
-  
-  Classic_insight =~ Pb_insight_1 + Pb_insight_2 + Pb_insight_3 + Pb_insight_4 + Pb_insight_5
-  Classic_non_insight =~ Pb_non_insight_1 + Pb_non_insight_2 + Pb_non_insight_3 + Pb_non_insight_4 + Pb_non_insight_5
-  CRA =~ Pb_CRA_1 + Pb_CRA_2 + Pb_CRA_3 + Pb_CRA_4 + Pb_CRA_5 + Pb_CRA_6 + Pb_CRA_7 + Pb_CRA_8 + Pb_CRA_9 + Pb_CRA_10 + Pb_CRA_11 + Pb_CRA_12 + Pb_CRA_13 + Pb_CRA_14 + Pb_CRA_15 + Pb_CRA_16 + Pb_CRA_17 + Pb_CRA_18 + Pb_CRA_19 + Pb_CRA_20
-"
-
-model_S4_2 <- "
-  Classic_insight =~ Pb_insight_1 + Pb_insight_2 + Pb_insight_3 + Pb_insight_4 + Pb_insight_5
-  Classic_non_insight =~ Pb_non_insight_1 + Pb_non_insight_2 + Pb_non_insight_3 + Pb_non_insight_4 + Pb_non_insight_5
-  CRA =~ Pb_CRA_1 + Pb_CRA_2 + Pb_CRA_3 + Pb_CRA_4 + Pb_CRA_5 + Pb_CRA_6 + Pb_CRA_7 + Pb_CRA_8 + Pb_CRA_9 + Pb_CRA_10 + Pb_CRA_11 + Pb_CRA_12 + Pb_CRA_13 + Pb_CRA_14 + Pb_CRA_15 + Pb_CRA_16 + Pb_CRA_17 + Pb_CRA_18 + Pb_CRA_19 + Pb_CRA_20
-"
-
-fit_S4_1 = cfa(model_S4_1, data = data_4_CFA, missing = "fiml")
-fit_S4_2 = cfa(model_S4_2, data = data_4_CFA, missing = "fiml")
-```
-
-```{r}
-summary(fit_S4_1, standardized = TRUE, fit.measures = TRUE)
-```
-
-```{r}
-summary(fit_S4_2, standardized = TRUE, fit.measures = TRUE)
-```
-
-```{r}
-semTools::net(fit_S4_1, fit_S4_2)
-```
-
-```{r}
-lavTestLRT(fit_S4_1, fit_S4_2)
-```

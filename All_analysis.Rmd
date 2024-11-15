@@ -23,6 +23,7 @@ library(jtools)
 library(lavaan)
 library(semTools)
 library(lmerTest)
+library(huxtable)
 ```
 
 
@@ -59,6 +60,9 @@ table(data_1$Sex)
 mean(as.numeric(data_1$Age), na.rm = TRUE)
 sd(data_1$Age, na.rm = TRUE)
 
+table(data_1$`Ethnicity simplified`)
+
+table(data_1$Nationality)
 ```
 
 ## Descriptive Statistics (ESM)
@@ -67,7 +71,7 @@ sd(data_1$Age, na.rm = TRUE)
 media_ratings %>%
   gather(key = "media", value = "rating") %>%
   group_by(media) %>%
-  summarise(mean = mean(rating, na.rm = TRUE), sd = sd(rating, na.rm = TRUE), n_NA = sum(is.na(rating))) %>%
+  summarise(mean = mean(rating, na.rm = TRUE), sd = sd(rating, na.rm = TRUE), percent_NA = (sum(is.na(rating)) / nrow(data_1)) * 100 ) %>%
   kable()
 ```
 
@@ -208,7 +212,7 @@ cor_matrix %>%
 
 **RQ1**: What pairwise correlations across media are significantly different from chance?
 
-```{r figure S4}
+```{r figure S2}
 # Calculate 95% Confidence Intervals for each Pair
 bootstrap_cis <- all_bootstrap_results %>%
   group_by(Pair) %>%
@@ -267,7 +271,7 @@ demo_2 = read_csv("Data/Study2_demo.csv")
 demo_2$PROLIFIC_PID = demo_2[["Participant id"]]
 
 data_2 <- left_join(data_2, 
-                    demo_2 %>% select(PROLIFIC_PID, Age, Sex), 
+                    demo_2 %>% select(PROLIFIC_PID, Age, Sex, `Ethnicity simplified`, Nationality), 
                     by = "PROLIFIC_PID")
 
 table(data_2$Sex)
@@ -278,6 +282,11 @@ data_2 %>%
     sd_Age = sd(Age, na.rm = TRUE),
     mean_time = mean(as.numeric(`Duration (in seconds)`), na.rm = TRUE), 
     sd_time = sd(as.numeric(`Duration (in seconds)`), na.rm = TRUE))
+
+table(data_2$`Ethnicity simplified`)
+
+table(data_2$Nationality)
+
 ```
 
 ```{r}
@@ -288,6 +297,71 @@ data_2_cfa = data_2 %>%
 
 data_2_cfa$ResponseId = data_2$ResponseId
 ```
+
+```{r}
+# Descriptive data
+
+data_2_cfa %>% 
+  summarise(
+  M_Novel_insight = mean(Novel_insight, na.rm = TRUE),
+  SD_Novel_insight = sd(Novel_insight, na.rm = TRUE),
+  M_Novel_explo = mean(Novel_explo, na.rm = TRUE),
+  SD_Novel_explo = sd(Novel_explo, na.rm = TRUE),
+  M_Novel_morbid = mean(Novel_morbid, na.rm = TRUE),
+  SD_Novel_morbid = sd(Novel_morbid, na.rm = TRUE),
+  M_Movie_insight = mean(Movie_insight, na.rm = TRUE),
+  SD_Movie_insight = sd(Movie_insight, na.rm = TRUE),
+  M_Movie_explo = mean(Movie_explo, na.rm = TRUE),
+  SD_Movie_explo = sd(Movie_explo, na.rm = TRUE),
+  M_Movie_morbid = mean(Movie_morbid, na.rm = TRUE),
+  SD_Movie_morbid = sd(Movie_morbid, na.rm = TRUE),
+  M_Nonfict_insight = mean(Nonfict_insight, na.rm = TRUE),
+  SD_Nonfict_insight = sd(Nonfict_insight, na.rm = TRUE),
+  M_Nonfict_explo = mean(Nonfict_explo, na.rm = TRUE),
+  SD_Nonfict_explo = sd(Nonfict_explo, na.rm = TRUE),
+  M_Nonfict_morbid = mean(Nonfict_morbid, na.rm = TRUE),
+  SD_Nonfict_morbid = sd(Nonfict_morbid, na.rm = TRUE),
+  M_Game_insight = mean(Game_insight, na.rm = TRUE),
+  SD_Game_insight = sd(Game_insight, na.rm = TRUE),
+  M_Game_explo = mean(Game_explo, na.rm = TRUE),
+  SD_Game_explo = sd(Game_explo, na.rm = TRUE),
+  M_Game_morbid = mean(Game_morbid, na.rm = TRUE),
+  SD_Game_morbid = sd(Game_morbid, na.rm = TRUE),
+  M_Docu_insight = mean(Docu_insight, na.rm = TRUE),
+  SD_Docu_insight = sd(Docu_insight, na.rm = TRUE),
+  M_Docu_explo = mean(Docu_explo, na.rm = TRUE),
+  SD_Docu_explo = sd(Docu_explo, na.rm = TRUE),
+  M_Docu_morbid = mean(Docu_morbid, na.rm = TRUE),
+  SD_Docu_morbid = sd(Docu_morbid, na.rm = TRUE)
+  )
+
+
+data_2_cfa %>%
+  summarise(
+    percent_NA_novel = sum(is.na(Novel_insight)) / nrow(data_2_cfa) * 100,
+    percent_NA_movie = sum(is.na(Movie_insight)) / nrow(data_2_cfa) * 100,
+    percent_NA_nonfict = sum(is.na(Nonfict_insight)) / nrow(data_2_cfa) * 100,
+    percent_NA_game = sum(is.na(Game_insight)) / nrow(data_2_cfa) * 100,
+    percent_NA_docu = sum(is.na(Docu_insight)) / nrow(data_2_cfa) * 100
+  )
+
+
+data_2 %>%
+  summarise(
+    mean_Novel_regularity = mean(as.numeric(Novel_regularity), na.rm = TRUE),
+    sd_Novel_regularity = sd(as.numeric(Novel_regularity), na.rm = TRUE),
+    mean_Movie_regularity = mean(as.numeric(Movie_regularity), na.rm = TRUE),
+    sd_Movie_regularity = sd(as.numeric(Movie_regularity), na.rm = TRUE),
+    mean_Nonfict_regularity = mean(as.numeric(Nonfict_regularity), na.rm = TRUE),
+    sd_Nonfict_regularity = sd(as.numeric(Nonfict_regularity), na.rm = TRUE),
+    mean_Game_regularity = mean(as.numeric(Game_regularity), na.rm = TRUE),
+    sd_Game_regularity = sd(as.numeric(Game_regularity), na.rm = TRUE),
+    mean_Docu_regularity = mean(as.numeric(Docu_regularity), na.rm = TRUE),
+    sd_Docu_regularity = sd(as.numeric(Docu_regularity), na.rm = TRUE)
+    
+  )
+```
+
 
 
 ## Model Fitting
@@ -457,6 +531,43 @@ summary(fit_8, standardized = TRUE, fit.measures = TRUE)
 ```{r}
 lavaan::lavTestLRT(fit_7, fit_8)
 ```
+
+```{r}
+# Analyzing the effect of gender
+
+data_2_cfa$Sex = data_2$Sex
+
+data_2_cfa$Sex <- factor(data_2_cfa$Sex, levels = c("Male", "Female"))
+
+lm1 = lm(Docu_morbid ~ factor(Sex), data_2_cfa[data_2_cfa$Sex %in% c("Male", "Female"),])
+
+lm2 = lm(Nonfict_morbid ~ factor(Sex), data_2_cfa[data_2_cfa$Sex %in% c("Female", "Male"),])
+
+lm3 = lm(Movie_morbid ~ factor(Sex), data_2_cfa[data_2_cfa$Sex %in% c("Female", "Male"),])
+
+lm4 = lm(Novel_morbid ~ factor(Sex), data_2_cfa[data_2_cfa$Sex %in% c("Female", "Male"),])
+
+lm5 = lm(Game_morbid ~ factor(Sex), data_2_cfa[data_2_cfa$Sex %in% c("Female", "Male"),])
+```
+
+```{r}
+
+library(flextable)
+library(officer)
+summary_table = export_summs(lm1, lm2, lm3, lm4, lm5,
+             model.names = c("Docu", "Nonfict", "Movie", "Novel", "Game")) %>% set_caption("Effect of gender on morbid curiosity across media")
+
+flextable_table <- as_flextable(summary_table)
+
+# Create a Word document and add the table
+doc <- read_docx() %>%
+  body_add_flextable(flextable_table) %>%
+  body_add_par("Effect of gender on morbid curiosity across media", style = "heading 1")
+
+# Save the document
+print(doc, target = "summary_table.docx")
+```
+
 
 
 

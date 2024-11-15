@@ -3,3 +3,10 @@
 .RData
 .Ruserdata
 Exploratory_analysis.Rmd
+Topic_modelling.ipynb
+Data/Stim_Klopfenstein_2024.csv
+Data/Stim_Klopfenstein_2024_with_topics.csv
+Data/Study1_demo2.csv
+Data/Study4_Klopfenstein_2024.csv
+Data/Webb_incomplete_data.csv
+summary_table.docx
